@@ -44,6 +44,10 @@ async function handleMessage(msg, sender) {
       return await setEncoding(msg.tabId, msg.encoding);
     case "apply-adblock":
       return await applyAdblockState();
+    case "get-redirect-chain":
+      return await getRedirectChain(msg.tabId);
+    case "clear-redirect-chain":
+      return await clearRedirectChain(msg.tabId);
     default:
       throw new Error(`unknown message type: ${msg?.type}`);
   }
@@ -288,6 +292,84 @@ async function applyAdblockState() {
   });
   return { adblockEnabled };
 }
+
+// ---------- Redirect tracer ----------
+// We log main_frame redirects per tab to chrome.storage.session so the chain
+// survives service-worker sleeps. Each entry is one of:
+//   { type: "start",    url, time }
+//   { type: "redirect", from, to, status, time }
+//   { type: "end",      url, status, time }
+//
+// A new "start" entry resets the chain for that tab.
+
+const REDIRECT_KEY = (tabId) => `redirects:${tabId}`;
+const MAX_CHAIN = 50;
+
+async function pushRedirect(tabId, entry) {
+  if (tabId < 0) return;
+  const key = REDIRECT_KEY(tabId);
+  const data = await chrome.storage.session.get(key);
+  let chain = data[key] || [];
+  if (entry.type === "start") chain = [];
+  chain.push(entry);
+  if (chain.length > MAX_CHAIN) chain = chain.slice(-MAX_CHAIN);
+  await chrome.storage.session.set({ [key]: chain });
+}
+
+async function getRedirectChain(tabId) {
+  if (tabId == null || tabId < 0) return [];
+  const key = REDIRECT_KEY(tabId);
+  const data = await chrome.storage.session.get(key);
+  return data[key] || [];
+}
+
+async function clearRedirectChain(tabId) {
+  if (tabId == null || tabId < 0) return;
+  await chrome.storage.session.remove(REDIRECT_KEY(tabId));
+}
+
+chrome.webRequest.onBeforeRequest.addListener(
+  (details) => {
+    if (details.type !== "main_frame" || details.tabId < 0) return;
+    pushRedirect(details.tabId, {
+      type: "start",
+      url: details.url,
+      time: Date.now(),
+    });
+  },
+  { urls: ["<all_urls>"], types: ["main_frame"] }
+);
+
+chrome.webRequest.onBeforeRedirect.addListener(
+  (details) => {
+    if (details.type !== "main_frame" || details.tabId < 0) return;
+    pushRedirect(details.tabId, {
+      type: "redirect",
+      from: details.url,
+      to: details.redirectUrl,
+      status: details.statusCode,
+      time: Date.now(),
+    });
+  },
+  { urls: ["<all_urls>"], types: ["main_frame"] }
+);
+
+chrome.webRequest.onCompleted.addListener(
+  (details) => {
+    if (details.type !== "main_frame" || details.tabId < 0) return;
+    pushRedirect(details.tabId, {
+      type: "end",
+      url: details.url,
+      status: details.statusCode,
+      time: Date.now(),
+    });
+  },
+  { urls: ["<all_urls>"], types: ["main_frame"] }
+);
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  chrome.storage.session.remove(REDIRECT_KEY(tabId)).catch(() => {});
+});
 
 // ---------- Keyboard commands ----------
 

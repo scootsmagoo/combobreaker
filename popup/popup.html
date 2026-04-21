@@ -8,73 +8,99 @@
   <body>
     <header>
       <div class="brand">
-        <img src="../icons/icon32.png" alt="" width="24" height="24" />
+        <img src="../icons/icon32.png" alt="" width="22" height="22" />
         <span>ComboBreaker</span>
+      </div>
+      <div class="site-bar">
+        <span id="site-name" class="site-name">—</span>
       </div>
       <button id="open-options" class="icon-btn" title="Open settings">⚙</button>
     </header>
 
-    <section class="site-bar">
-      <span class="label">Site</span>
-      <span id="site-name" class="site-name">—</span>
-    </section>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="site" role="tab">Site</button>
+      <button class="tab" data-tab="cookies" role="tab">Cookies</button>
+      <button class="tab" data-tab="redirects" role="tab">Redirects</button>
+      <button class="tab" data-tab="tools" role="tab">Tools</button>
+    </nav>
 
-    <section class="toggles" aria-label="Per-site toggles">
-      <label class="row">
-        <span>Dark mode</span>
-        <input type="checkbox" id="t-darkmode" />
-      </label>
-      <label class="row">
-        <span>JavaScript</span>
-        <input type="checkbox" id="t-js" />
-      </label>
-      <label class="row">
-        <span>Custom CSS</span>
-        <input type="checkbox" id="t-css" />
-      </label>
-      <label class="row">
-        <span>Custom JS</span>
-        <input type="checkbox" id="t-userjs" />
-      </label>
-    </section>
+    <main>
+      <!-- ───────── Site pane ───────── -->
+      <section id="pane-site" class="pane active">
+        <div class="toggles">
+          <label class="row">
+            <span>Dark mode</span>
+            <input type="checkbox" id="t-darkmode" />
+          </label>
+          <label class="row">
+            <span>JavaScript</span>
+            <input type="checkbox" id="t-js" />
+          </label>
+          <label class="row">
+            <span>Custom CSS</span>
+            <input type="checkbox" id="t-css" />
+          </label>
+          <label class="row">
+            <span>Custom JS</span>
+            <input type="checkbox" id="t-userjs" />
+          </label>
+        </div>
+        <div class="row-actions">
+          <button class="link-btn" data-tool="edit-css">Edit CSS →</button>
+          <button class="link-btn" data-tool="edit-js">Edit JS →</button>
+        </div>
+      </section>
 
-    <section class="tools" aria-label="Tools">
-      <button class="tool" data-tool="color-picker" title="Pick a color from the page">
-        <span class="ico">◉</span><span>Color picker</span>
-      </button>
-      <button class="tool" data-tool="ruler" title="Show pixel ruler">
-        <span class="ico">⟷</span><span>Ruler</span>
-      </button>
-      <button class="tool" data-tool="whatfont" title="Inspect font on hover">
-        <span class="ico">A</span><span>Font inspector</span>
-      </button>
-      <button class="tool" data-tool="screenshot" title="Save full-page PNG">
-        <span class="ico">▢</span><span>Full screenshot</span>
-      </button>
-      <button class="tool" data-tool="encoding" title="Override character encoding">
-        <span class="ico">編</span><span>Encoding…</span>
-      </button>
-      <button class="tool" data-tool="edit-css" title="Open the CSS editor for this site">
-        <span class="ico">{}</span><span>Edit CSS</span>
-      </button>
-      <button class="tool" data-tool="edit-js" title="Open the JS editor for this site">
-        <span class="ico">JS</span><span>Edit JS</span>
-      </button>
-    </section>
+      <!-- ───────── Cookies pane ───────── -->
+      <section id="pane-cookies" class="pane">
+        <div class="cookies-toolbar">
+          <span id="cookies-count" class="muted">—</span>
+          <button id="cookies-refresh" class="ghost-btn" title="Refresh">↻</button>
+          <button id="cookies-nuke" class="danger-btn" title="Delete every cookie for this site">Nuke all</button>
+        </div>
+        <div id="cookies-list" class="cookies-list">
+          <div class="empty muted">Loading…</div>
+        </div>
+      </section>
 
-    <section class="globals">
-      <label class="row sm">
-        <span>Adblock (basic)</span>
-        <input type="checkbox" id="g-adblock" />
-      </label>
-      <label class="row sm">
-        <span>JSON pretty-print</span>
-        <input type="checkbox" id="g-json" />
-      </label>
-    </section>
+      <!-- ───────── Redirects pane ───────── -->
+      <section id="pane-redirects" class="pane">
+        <div class="cookies-toolbar">
+          <span id="redirects-count" class="muted">—</span>
+          <button id="redirects-refresh" class="ghost-btn" title="Refresh">↻</button>
+          <button id="redirects-copy" class="ghost-btn" title="Copy chain as text">Copy</button>
+          <button id="redirects-clear" class="danger-btn" title="Clear chain for this tab">Clear</button>
+        </div>
+        <div id="redirects-list" class="redirects-list">
+          <div class="empty muted">Loading…</div>
+        </div>
+      </section>
+
+      <!-- ───────── Tools pane ───────── -->
+      <section id="pane-tools" class="pane">
+        <div class="tools">
+          <button class="tool" data-tool="color-picker"><span class="ico">◉</span><span>Color picker</span></button>
+          <button class="tool" data-tool="ruler"><span class="ico">⟷</span><span>Ruler</span></button>
+          <button class="tool" data-tool="whatfont"><span class="ico">A</span><span>Font inspector</span></button>
+          <button class="tool" data-tool="screenshot"><span class="ico">▢</span><span>Full screenshot</span></button>
+          <button class="tool" data-tool="encoding"><span class="ico">編</span><span>Encoding…</span></button>
+        </div>
+        <div class="globals">
+          <label class="row sm">
+            <span>Adblock (basic)</span>
+            <input type="checkbox" id="g-adblock" />
+          </label>
+          <label class="row sm">
+            <span>JSON pretty-print</span>
+            <input type="checkbox" id="g-json" />
+          </label>
+        </div>
+      </section>
+    </main>
 
     <div id="status" class="status" hidden></div>
 
+    <!-- ───────── Dialogs ───────── -->
     <dialog id="encoding-dialog">
       <form method="dialog">
         <h3>Override encoding</h3>
@@ -97,6 +123,30 @@
         <menu>
           <button value="cancel">Cancel</button>
           <button id="encoding-apply" value="apply">Apply</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="cookie-dialog">
+      <form method="dialog">
+        <h3 id="cookie-dialog-title">Edit cookie</h3>
+        <label class="field">
+          <span>Name</span>
+          <input type="text" id="cookie-name" readonly />
+        </label>
+        <label class="field">
+          <span>Value</span>
+          <textarea id="cookie-value" rows="6" spellcheck="false"></textarea>
+        </label>
+        <div class="cookie-meta">
+          <span id="cookie-meta-domain"></span>
+          <span id="cookie-meta-path"></span>
+          <span id="cookie-meta-expires"></span>
+          <span id="cookie-meta-flags"></span>
+        </div>
+        <menu>
+          <button value="cancel">Cancel</button>
+          <button id="cookie-save" value="save">Save</button>
         </menu>
       </form>
     </dialog>
