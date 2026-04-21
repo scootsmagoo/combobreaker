@@ -19,7 +19,7 @@ Inspired by the spirit of [@levelsio's combo-extension thread](https://x.com/lev
 | **Color picker** | Native `EyeDropper` API — one click, hex copied to clipboard. |
 | **Pixel ruler** | On-page draggable ruler overlay. |
 | **Font inspector** | Hover any element to see its font stack, size, weight, line-height, color. |
-| **JSON formatter** | Auto-pretty-prints `application/json` responses, with collapse and copy. |
+| **JSON formatter** | Auto-pretty-prints `application/json` responses. Tree / Formatted / Raw view modes, depth-level expand buttons (1–5, All), hover for JSON path + click to pin & copy, per-node "expand all descendants", auto/dark/light theme, and `window.data` exposed in the page console. |
 | **Full-page screenshot** | Scroll-and-stitch the entire page to a PNG download. |
 | **Encoding override** | Manually set character encoding for legacy/garbled pages. |
 | **Kagi search** | Sets Kagi as your default search provider on install. |
@@ -72,6 +72,10 @@ ComboBreaker:
 ## Contributing
 
 PRs welcome. The whole point is auditability — please keep the codebase vanilla JS, no build step, no minified vendor blobs.
+
+## Acknowledgements
+
+The JSON formatter's feature set (level controls, JSON-path display, view modes, theme cycling, `window.data` exposure) is inspired by [JSON Alexander](https://github.com/wesbos/JSON-Alexander) by Wes Bos (MIT). All code is original to ComboBreaker.
 
 ## License
 
