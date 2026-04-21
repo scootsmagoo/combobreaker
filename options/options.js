@@ -23,7 +23,8 @@ async function init() {
   const g = await getGlobal();
   $("g-adblock").checked = !!g.adblockEnabled;
   $("g-json").checked = !!g.jsonFormatterEnabled;
-  $("g-darkmode").checked = !!g.defaultDarkMode;
+  $("g-darkmode").checked = !!g.darkMode.enabled;
+  renderDarkTuneInputs(g.darkMode.theme);
 
   $("g-adblock").addEventListener("change", async (e) => {
     await setGlobal({ adblockEnabled: e.target.checked });
@@ -35,9 +36,11 @@ async function init() {
     toast(`JSON formatter ${e.target.checked ? "on" : "off"}`, "ok");
   });
   $("g-darkmode").addEventListener("change", async (e) => {
-    await setGlobal({ defaultDarkMode: e.target.checked });
-    toast(`Default dark mode ${e.target.checked ? "on" : "off"}`, "ok");
+    await setGlobal({ darkMode: { enabled: e.target.checked } });
+    toast(`Dark mode ${e.target.checked ? "on" : "off"} for all sites`, "ok");
   });
+
+  bindDarkTuneInputs();
 
   await refreshSites();
 
@@ -116,7 +119,8 @@ function renderSites() {
     badges.className = "badges";
     if (settings.cssEnabled) badges.appendChild(badge("CSS"));
     if (settings.jsEnabled) badges.appendChild(badge("JS"));
-    if (settings.darkMode) badges.appendChild(badge("DARK"));
+    if (settings.darkMode === "on") badges.appendChild(badge("DARK ON"));
+    else if (settings.darkMode === "off") badges.appendChild(badge("DARK OFF"));
     li.appendChild(name);
     li.appendChild(badges);
     li.addEventListener("click", () => selectSite(siteKey));
@@ -141,12 +145,8 @@ async function selectSite(siteKey, isNew = false) {
   $("editor-site").textContent = siteKey + (isNew ? "  (new — unsaved)" : "");
   $("css-area").value = STATE.activeSettings.css || "";
   $("js-area").value = STATE.activeSettings.js || "";
-  $("meta-dark").value =
-    STATE.activeSettings.darkMode == null
-      ? ""
-      : STATE.activeSettings.darkMode
-      ? "true"
-      : "false";
+  const dm = STATE.activeSettings.darkMode;
+  $("meta-dark").value = dm === "on" || dm === "off" ? dm : "";
   updateEnabledToggle();
   renderSites();
 }
@@ -203,7 +203,7 @@ async function saveActive() {
     patch.jsEnabled = enabled;
   }
   const meta = $("meta-dark").value;
-  patch.darkMode = meta === "" ? null : meta === "true";
+  patch.darkMode = meta === "on" || meta === "off" ? meta : null;
   STATE.activeSettings = await setSite(STATE.activeSite, patch);
   STATE.dirty = false;
   await refreshSites();
@@ -214,6 +214,10 @@ async function saveActive() {
 }
 
 async function broadcastSiteChange(siteKey, settings) {
+  // Per-site dark-mode and other persisted settings are picked up
+  // automatically by site_injector via chrome.storage.onChanged.
+  // We still hot-reload CSS so users iterating in the editor get
+  // instant feedback without a tab refresh.
   const tabs = await chrome.tabs.query({});
   for (const t of tabs) {
     if (!t.url || !t.id) continue;
@@ -231,12 +235,6 @@ async function broadcastSiteChange(siteKey, settings) {
         enabled: settings.cssEnabled,
       })
       .catch(() => {});
-    chrome.tabs
-      .sendMessage(t.id, {
-        type: "cb-dark-mode-changed",
-        enabled: settings.darkMode,
-      })
-      .catch(() => {});
   }
 }
 
@@ -252,6 +250,56 @@ async function deleteActive() {
   $("editor-site").textContent = "Pick a site →";
   await refreshSites();
   toast("Deleted", "ok");
+}
+
+// ─────────────────── Dark-mode tuning ───────────────────
+
+const DM_FIELDS = [
+  ["brightness", "dm-brightness", "dm-brightness-out", 100],
+  ["contrast", "dm-contrast", "dm-contrast-out", 100],
+  ["sepia", "dm-sepia", "dm-sepia-out", 0],
+  ["grayscale", "dm-grayscale", "dm-grayscale-out", 0],
+];
+
+function renderDarkTuneInputs(theme) {
+  $("dm-mode").value = String(theme.mode ?? 1);
+  for (const [field, inputId, outId] of DM_FIELDS) {
+    $(inputId).value = String(theme[field]);
+    $(outId).textContent = String(theme[field]);
+  }
+}
+
+function bindDarkTuneInputs() {
+  const push = debounce(async (patch) => {
+    await setGlobal({ darkMode: { theme: patch } });
+  }, 120);
+
+  $("dm-mode").addEventListener("change", (e) => {
+    push({ mode: Number(e.target.value) });
+  });
+
+  for (const [field, inputId, outId] of DM_FIELDS) {
+    $(inputId).addEventListener("input", (e) => {
+      const v = Number(e.target.value);
+      $(outId).textContent = String(v);
+      push({ [field]: v });
+    });
+  }
+
+  $("dm-reset").addEventListener("click", async () => {
+    const defaults = { brightness: 100, contrast: 100, sepia: 0, grayscale: 0, mode: 1 };
+    renderDarkTuneInputs(defaults);
+    await setGlobal({ darkMode: { theme: defaults } });
+    toast("Dark mode tuning reset", "ok");
+  });
+}
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
 }
 
 let toastTimer = null;

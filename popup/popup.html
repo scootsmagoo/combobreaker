@@ -27,11 +27,24 @@
     <main>
       <!-- ───────── Site pane ───────── -->
       <section id="pane-site" class="pane active">
-        <div class="toggles">
+        <div class="dark-section">
           <label class="row">
-            <span>Dark mode</span>
-            <input type="checkbox" id="t-darkmode" />
+            <span>Dark mode <em class="muted">(all sites)</em></span>
+            <input type="checkbox" id="t-darkmode-global" />
           </label>
+          <div class="row sm site-override">
+            <span>This site</span>
+            <div class="seg" role="radiogroup" aria-label="Per-site dark mode">
+              <button type="button" class="seg-btn" data-val="">Auto</button>
+              <button type="button" class="seg-btn" data-val="on">On</button>
+              <button type="button" class="seg-btn" data-val="off">Off</button>
+            </div>
+          </div>
+          <div class="row sm dark-tune-row">
+            <button type="button" class="link-btn" id="open-dark-tune">Tune brightness / contrast →</button>
+          </div>
+        </div>
+        <div class="toggles">
           <label class="row">
             <span>JavaScript</span>
             <input type="checkbox" id="t-js" />
@@ -123,6 +136,54 @@
         <menu>
           <button value="cancel">Cancel</button>
           <button id="encoding-apply" value="apply">Apply</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="dark-tune-dialog">
+      <form method="dialog">
+        <h3>Dark mode</h3>
+        <div class="dark-tune-grid">
+          <label class="tune-row">
+            <span>Mode</span>
+            <select id="tune-mode">
+              <option value="1">Dark</option>
+              <option value="0">Light</option>
+            </select>
+          </label>
+          <label class="tune-row">
+            <span>Brightness</span>
+            <span class="tune-slider">
+              <input type="range" id="tune-brightness" min="50" max="150" step="5" />
+              <output id="tune-brightness-out">100</output>
+            </span>
+          </label>
+          <label class="tune-row">
+            <span>Contrast</span>
+            <span class="tune-slider">
+              <input type="range" id="tune-contrast" min="50" max="150" step="5" />
+              <output id="tune-contrast-out">100</output>
+            </span>
+          </label>
+          <label class="tune-row">
+            <span>Sepia</span>
+            <span class="tune-slider">
+              <input type="range" id="tune-sepia" min="0" max="100" step="5" />
+              <output id="tune-sepia-out">0</output>
+            </span>
+          </label>
+          <label class="tune-row">
+            <span>Grayscale</span>
+            <span class="tune-slider">
+              <input type="range" id="tune-grayscale" min="0" max="100" step="5" />
+              <output id="tune-grayscale-out">0</output>
+            </span>
+          </label>
+        </div>
+        <p class="hint muted">Changes apply live to every page with dark mode on.</p>
+        <menu>
+          <button type="button" id="tune-reset">Reset</button>
+          <button value="close">Done</button>
         </menu>
       </form>
     </dialog>

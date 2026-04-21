@@ -27,10 +27,56 @@
             <span>JSON pretty-print</span>
             <input type="checkbox" id="g-json" />
           </label>
+        </section>
+
+        <section class="side-section">
+          <h2>Dark mode</h2>
           <label class="row">
-            <span>Default dark mode</span>
+            <span>Enabled (all sites)</span>
             <input type="checkbox" id="g-darkmode" />
           </label>
+          <div class="dark-tune">
+            <label class="tune-row">
+              <span>Mode</span>
+              <select id="dm-mode">
+                <option value="1">Dark</option>
+                <option value="0">Light</option>
+              </select>
+            </label>
+            <label class="tune-row">
+              <span>Brightness</span>
+              <span class="tune-slider">
+                <input type="range" id="dm-brightness" min="50" max="150" step="5" />
+                <output id="dm-brightness-out">100</output>
+              </span>
+            </label>
+            <label class="tune-row">
+              <span>Contrast</span>
+              <span class="tune-slider">
+                <input type="range" id="dm-contrast" min="50" max="150" step="5" />
+                <output id="dm-contrast-out">100</output>
+              </span>
+            </label>
+            <label class="tune-row">
+              <span>Sepia</span>
+              <span class="tune-slider">
+                <input type="range" id="dm-sepia" min="0" max="100" step="5" />
+                <output id="dm-sepia-out">0</output>
+              </span>
+            </label>
+            <label class="tune-row">
+              <span>Grayscale</span>
+              <span class="tune-slider">
+                <input type="range" id="dm-grayscale" min="0" max="100" step="5" />
+                <output id="dm-grayscale-out">0</output>
+              </span>
+            </label>
+            <button type="button" id="dm-reset" class="ghost-btn dm-reset">Reset</button>
+          </div>
+          <p class="hint">
+            Powered by <a href="https://darkreader.org/" target="_blank" rel="noopener">Dark Reader</a>.
+            Per-site exceptions live in the popup or in the Settings tab below.
+          </p>
         </section>
 
         <section class="side-section">
@@ -74,11 +120,11 @@ console.log('hello from ComboBreaker');
 
         <div id="pane-meta" class="pane meta-pane" hidden>
           <label class="row">
-            <span>Force dark mode here</span>
+            <span>Dark mode for this site</span>
             <select id="meta-dark">
-              <option value="">Use global default</option>
-              <option value="true">Always on</option>
-              <option value="false">Always off</option>
+              <option value="">Auto (follow global)</option>
+              <option value="on">Always on</option>
+              <option value="off">Always off</option>
             </select>
           </label>
           <p class="hint">

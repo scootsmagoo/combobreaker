@@ -22,6 +22,9 @@ async function init() {
   STATE.global = await getGlobal();
   $("g-adblock").checked = !!STATE.global.adblockEnabled;
   $("g-json").checked = !!STATE.global.jsonFormatterEnabled;
+  $("t-darkmode-global").checked = !!STATE.global.darkMode.enabled;
+  renderDarkOverride(null);
+  bindDarkSection();
 
   if (STATE.siteKey) {
     try {
@@ -68,28 +71,29 @@ function switchTab(name) {
 
 function renderSiteToggles() {
   const s = STATE.settings;
-  const dark = s.darkMode == null ? STATE.global.defaultDarkMode : s.darkMode;
-  $("t-darkmode").checked = !!dark;
   $("t-js").checked = !!STATE.jsEnabled;
   $("t-css").checked = !!s.cssEnabled;
   $("t-userjs").checked = !!s.jsEnabled;
+  renderDarkOverride(s.darkMode);
+}
+
+function renderDarkOverride(value) {
+  const norm = value === "on" || value === "off" ? value : "";
+  document
+    .querySelectorAll(".site-override .seg-btn")
+    .forEach((b) => b.classList.toggle("active", b.dataset.val === norm));
 }
 
 function disableSiteToggles(reason) {
-  for (const id of ["t-darkmode", "t-js", "t-css", "t-userjs"]) $(id).disabled = true;
+  for (const id of ["t-js", "t-css", "t-userjs"]) $(id).disabled = true;
+  document
+    .querySelectorAll(".site-override .seg-btn")
+    .forEach((b) => (b.disabled = true));
   status(reason, "err");
 }
 
 function bindSitePane() {
   $("open-options").addEventListener("click", () => chrome.runtime.openOptionsPage());
-
-  $("t-darkmode").addEventListener("change", async (e) => {
-    if (!STATE.siteKey) return;
-    const enabled = e.target.checked;
-    await sendMessage({ type: "set-site", siteKey: STATE.siteKey, patch: { darkMode: enabled } });
-    chrome.tabs.sendMessage(STATE.tab.id, { type: "cb-dark-mode-changed", enabled }).catch(() => {});
-    status(`Dark mode ${enabled ? "on" : "off"} for ${STATE.siteKey}`, "ok");
-  });
 
   $("t-js").addEventListener("change", async (e) => {
     if (!STATE.siteKey) return;
@@ -116,6 +120,108 @@ function bindSitePane() {
   document.querySelectorAll('[data-tool="edit-css"], [data-tool="edit-js"]').forEach((b) =>
     b.addEventListener("click", () => onTool(b.dataset.tool))
   );
+}
+
+// ─────────────────── Dark mode controls ───────────────────
+
+function bindDarkSection() {
+  $("t-darkmode-global").addEventListener("change", async (e) => {
+    const enabled = e.target.checked;
+    await sendMessage({
+      type: "set-global",
+      patch: { darkMode: { enabled } },
+    });
+    STATE.global.darkMode.enabled = enabled;
+    status(`Dark mode ${enabled ? "on" : "off"} (all sites)`, "ok");
+  });
+
+  document.querySelectorAll(".site-override .seg-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!STATE.siteKey || btn.disabled) return;
+      const val = btn.dataset.val;
+      const override = val === "on" ? "on" : val === "off" ? "off" : null;
+      await sendMessage({
+        type: "set-site",
+        siteKey: STATE.siteKey,
+        patch: { darkMode: override },
+      });
+      if (STATE.settings) STATE.settings.darkMode = override;
+      renderDarkOverride(override);
+      const label =
+        override === "on"
+          ? `forced on for ${STATE.siteKey}`
+          : override === "off"
+            ? `disabled for ${STATE.siteKey}`
+            : `following global for ${STATE.siteKey}`;
+      status(`Dark mode ${label}`, "ok");
+    });
+  });
+
+  $("open-dark-tune").addEventListener("click", openDarkTune);
+  bindDarkTuneDialog();
+}
+
+const TUNE_FIELDS = [
+  ["brightness", "tune-brightness", "tune-brightness-out", 100],
+  ["contrast", "tune-contrast", "tune-contrast-out", 100],
+  ["sepia", "tune-sepia", "tune-sepia-out", 0],
+  ["grayscale", "tune-grayscale", "tune-grayscale-out", 0],
+];
+
+function openDarkTune() {
+  const t = STATE.global.darkMode.theme;
+  $("tune-mode").value = String(t.mode ?? 1);
+  for (const [field, inputId, outId] of TUNE_FIELDS) {
+    $(inputId).value = String(t[field]);
+    $(outId).textContent = String(t[field]);
+  }
+  $("dark-tune-dialog").showModal();
+}
+
+function bindDarkTuneDialog() {
+  const push = debounce(async (patch) => {
+    STATE.global.darkMode.theme = { ...STATE.global.darkMode.theme, ...patch };
+    await sendMessage({
+      type: "set-global",
+      patch: { darkMode: { theme: patch } },
+    });
+  }, 120);
+
+  $("tune-mode").addEventListener("change", (e) => {
+    push({ mode: Number(e.target.value) });
+  });
+
+  for (const [field, inputId, outId] of TUNE_FIELDS) {
+    $(inputId).addEventListener("input", (e) => {
+      const v = Number(e.target.value);
+      $(outId).textContent = String(v);
+      push({ [field]: v });
+    });
+  }
+
+  $("tune-reset").addEventListener("click", async (e) => {
+    e.preventDefault();
+    const defaults = { brightness: 100, contrast: 100, sepia: 0, grayscale: 0, mode: 1 };
+    $("tune-mode").value = String(defaults.mode);
+    for (const [field, inputId, outId] of TUNE_FIELDS) {
+      $(inputId).value = String(defaults[field]);
+      $(outId).textContent = String(defaults[field]);
+    }
+    STATE.global.darkMode.theme = { ...defaults };
+    await sendMessage({
+      type: "set-global",
+      patch: { darkMode: { theme: defaults } },
+    });
+    status("Dark mode tuning reset", "ok");
+  });
+}
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
 }
 
 // ─────────────────── Cookies pane ───────────────────

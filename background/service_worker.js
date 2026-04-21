@@ -1,4 +1,11 @@
-import { ensureSchema, getGlobal, getSite, setSite } from "../lib/storage.js";
+import {
+  ensureSchema,
+  getGlobal,
+  setGlobal,
+  getSite,
+  setSite,
+  effectiveDarkModeFor,
+} from "../lib/storage.js";
 import { siteKeyFromUrl, originPatternForSite } from "../lib/site.js";
 
 chrome.runtime.onInstalled.addListener(async () => {
@@ -34,8 +41,14 @@ async function handleMessage(msg, sender) {
       return await setJsEnabled(msg.siteKey, msg.enabled);
     case "set-site":
       return await setSite(msg.siteKey, msg.patch);
-    case "toggle-darkmode":
-      return await toggleDarkMode(msg.siteKey);
+    case "set-global":
+      return await setGlobal(msg.patch);
+    case "apply-dark-mode":
+      return await applyDarkMode(sender?.tab?.id, msg.enabled, msg.theme);
+    case "toggle-darkmode-global":
+      return await toggleDarkModeGlobal();
+    case "toggle-darkmode-site":
+      return await toggleDarkModeSite(msg.siteKey);
     case "launch-tool":
       return await launchTool(msg.tool, msg.tabId, sender);
     case "capture-fullpage":
@@ -97,26 +110,96 @@ async function setJsEnabled(siteKey, enabled) {
   return { jsEnabled: enabled };
 }
 
-// ---------- Dark mode toggle ----------
+// ---------- Dark mode (Dark Reader engine) ----------
+//
+// Architecture:
+//   - vendor/darkreader.js is loaded into MAIN world, on demand, per tab.
+//   - We track which tabs already have the bundle so we don't re-inject 336 KB
+//     on every toggle. The set is cleared when a tab navigates or closes.
+//   - Toggles update storage; site_injector.js (in each tab) listens for
+//     storage changes and posts `apply-dark-mode` here, which injects /
+//     enables / disables Dark Reader in the right tab(s).
 
-async function toggleDarkMode(siteKey) {
-  if (!siteKey) return null;
-  const current = await getSite(siteKey);
-  const global = await getGlobal();
-  const wasOn = current.darkMode == null ? global.defaultDarkMode : current.darkMode;
-  const next = !wasOn;
-  await setSite(siteKey, { darkMode: next });
-  await broadcastToSite(siteKey, { type: "cb-dark-mode-changed", enabled: next });
+const DR_LOADED_TABS = new Set();
+
+chrome.tabs.onRemoved.addListener((tabId) => DR_LOADED_TABS.delete(tabId));
+chrome.tabs.onUpdated.addListener((tabId, info) => {
+  if (info.status === "loading") DR_LOADED_TABS.delete(tabId);
+});
+
+async function applyDarkMode(tabId, enabled, theme) {
+  if (tabId == null) return { ok: false, reason: "no tab" };
+
+  if (enabled) {
+    if (!DR_LOADED_TABS.has(tabId)) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          files: ["vendor/darkreader.js"],
+          world: "MAIN",
+          injectImmediately: true,
+        });
+        DR_LOADED_TABS.add(tabId);
+      } catch (e) {
+        // Likely an unsupported page (chrome://, file:, store, etc.)
+        return { ok: false, reason: String(e.message || e) };
+      }
+    }
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: (t) => {
+        if (window.DarkReader && typeof window.DarkReader.enable === "function") {
+          window.DarkReader.enable(t || {});
+        }
+      },
+      args: [theme || {}],
+      world: "MAIN",
+      injectImmediately: true,
+    });
+    return { ok: true, enabled: true };
+  }
+
+  // Disable. Only worth poking the page if we actually loaded the bundle.
+  if (!DR_LOADED_TABS.has(tabId)) return { ok: true, enabled: false };
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => {
+      if (window.DarkReader && typeof window.DarkReader.disable === "function") {
+        window.DarkReader.disable();
+      }
+    },
+    world: "MAIN",
+  });
+  // Also clear the anti-flash preamble that site_injector left, in the
+  // unusual case where it's still hanging around in isolated world.
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => {
+      const p = document.getElementById("__cb_dark_preamble__");
+      if (p) p.remove();
+    },
+  });
+  return { ok: true, enabled: false };
+}
+
+async function toggleDarkModeGlobal() {
+  const g = await getGlobal();
+  const next = !g.darkMode.enabled;
+  await setGlobal({ darkMode: { enabled: next } });
   return { darkMode: next };
 }
 
-async function broadcastToSite(siteKey, payload) {
-  const tabs = await chrome.tabs.query({});
-  for (const t of tabs) {
-    if (siteKeyFromUrl(t.url) === siteKey && t.id != null) {
-      chrome.tabs.sendMessage(t.id, payload).catch(() => {});
-    }
-  }
+// Per-site toggle: cycles based on what's *currently visible* on this page,
+// matching how Dark Reader's shortcut behaves.
+//   currently dark  -> set override "off"
+//   currently light -> set override "on"
+async function toggleDarkModeSite(siteKey) {
+  if (!siteKey) return null;
+  const [g, site] = await Promise.all([getGlobal(), getSite(siteKey)]);
+  const currentlyDark = effectiveDarkModeFor(g, site);
+  const nextOverride = currentlyDark ? "off" : "on";
+  await setSite(siteKey, { darkMode: nextOverride });
+  return { override: nextOverride };
 }
 
 // ---------- On-demand tool launcher ----------
@@ -381,7 +464,7 @@ chrome.commands.onCommand.addListener(async (command) => {
 
   switch (command) {
     case "toggle-darkmode":
-      await toggleDarkMode(siteKey);
+      await toggleDarkModeSite(siteKey);
       break;
     case "toggle-js": {
       const current = await getJavascriptSetting(siteKey);

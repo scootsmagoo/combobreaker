@@ -267,6 +267,62 @@ dialog button[value="add"] {
   font: inherit;
 }
 
+.dark-tune {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0 8px;
+}
+.dark-tune .tune-row {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.dark-tune .tune-row > span:first-child {
+  color: var(--fg-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.dark-tune select {
+  background: var(--bg-3);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  padding: 4px 6px;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 12px;
+}
+.dark-tune .tune-slider {
+  display: grid;
+  grid-template-columns: 1fr 32px;
+  align-items: center;
+  gap: 6px;
+}
+.dark-tune .tune-slider input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.dark-tune .tune-slider output {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--fg-dim);
+  text-align: right;
+}
+.dm-reset {
+  align-self: flex-end;
+  width: auto;
+  height: auto;
+  padding: 4px 10px;
+  font-size: 11px;
+  margin-top: 2px;
+}
+header a { color: var(--accent); }
+.hint a { color: var(--accent); text-decoration: none; }
+.hint a:hover { text-decoration: underline; }
+
 .toast {
   position: fixed;
   bottom: 18px;

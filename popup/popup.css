@@ -104,6 +104,48 @@ main {
 .pane.active { display: block; }
 
 /* Site pane */
+.dark-section {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.04), transparent);
+}
+.dark-section .row em.muted {
+  font-style: normal;
+  font-weight: 400;
+  font-size: 11px;
+  margin-left: 4px;
+}
+.site-override { cursor: default; }
+.site-override:hover { background: transparent; }
+.dark-tune-row { padding-top: 0; padding-bottom: 6px; }
+.dark-tune-row .link-btn { font-size: 11px; }
+
+.seg {
+  display: inline-flex;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.seg-btn {
+  background: transparent;
+  color: var(--fg-dim);
+  border: none;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+  border-left: 1px solid var(--border);
+  transition: background 0.1s ease, color 0.1s ease;
+}
+.seg-btn:first-child { border-left: none; }
+.seg-btn:hover { color: var(--fg); background: var(--bg-4); }
+.seg-btn.active {
+  background: var(--accent);
+  color: #06121e;
+}
+
 .toggles { padding: 4px 6px; border-bottom: 1px solid var(--border); }
 .row {
   display: flex;
@@ -418,9 +460,59 @@ dialog button {
   cursor: pointer;
   font: inherit;
 }
-dialog button[value="apply"], dialog button[value="save"] {
+dialog button[value="apply"], dialog button[value="save"], dialog button[value="close"] {
   background: var(--accent);
   color: #06121e;
   border-color: var(--accent);
   font-weight: 600;
+}
+
+/* Dark-mode tune dialog */
+.dark-tune-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.tune-row {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.tune-row > span:first-child {
+  color: var(--fg-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.tune-row select {
+  background: var(--bg-3);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 12px;
+}
+.tune-slider {
+  display: grid;
+  grid-template-columns: 1fr 32px;
+  align-items: center;
+  gap: 6px;
+}
+.tune-slider input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.tune-slider output {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--fg-dim);
+  text-align: right;
+}
+.hint.muted {
+  font-size: 11px;
+  margin: 4px 0 0;
 }
