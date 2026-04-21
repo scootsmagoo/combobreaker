@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="options.css" />
+    <title>ComboBreaker — Settings</title>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <img src="../icons/icon48.png" alt="" width="32" height="32" />
+        <h1>ComboBreaker</h1>
+        <span class="version" id="version"></span>
+      </div>
+      <a href="https://github.com/scootsmagoo/combobreaker" target="_blank" rel="noopener">Source ↗</a>
+    </header>
+
+    <main>
+      <aside id="sidebar">
+        <section class="side-section">
+          <h2>Global</h2>
+          <label class="row">
+            <span>Adblock (basic)</span>
+            <input type="checkbox" id="g-adblock" />
+          </label>
+          <label class="row">
+            <span>JSON pretty-print</span>
+            <input type="checkbox" id="g-json" />
+          </label>
+          <label class="row">
+            <span>Default dark mode</span>
+            <input type="checkbox" id="g-darkmode" />
+          </label>
+        </section>
+
+        <section class="side-section">
+          <div class="side-header">
+            <h2>Sites</h2>
+            <button id="add-site" class="ghost-btn" title="Add site">+</button>
+          </div>
+          <ul id="site-list" class="site-list"></ul>
+        </section>
+      </aside>
+
+      <section id="editor">
+        <header class="editor-header">
+          <span id="editor-site" class="editor-site">Pick a site →</span>
+          <div class="editor-tabs">
+            <button class="tab active" data-tab="css">CSS</button>
+            <button class="tab" data-tab="js">JS</button>
+            <button class="tab" data-tab="meta">Settings</button>
+          </div>
+          <div class="editor-actions">
+            <label class="enable-label">
+              <input type="checkbox" id="enabled-toggle" />
+              <span id="enabled-label">Enabled</span>
+            </label>
+            <button id="save" class="primary-btn">Save</button>
+            <button id="delete" class="danger-btn">Delete site</button>
+          </div>
+        </header>
+
+        <div id="pane-css" class="pane">
+          <textarea id="css-area" spellcheck="false" placeholder="/* Your CSS for this site */
+body { font-family: 'Iosevka', monospace; }
+"></textarea>
+        </div>
+
+        <div id="pane-js" class="pane" hidden>
+          <textarea id="js-area" spellcheck="false" placeholder="// Your JS for this site (runs in the page world)
+console.log('hello from ComboBreaker');
+"></textarea>
+        </div>
+
+        <div id="pane-meta" class="pane meta-pane" hidden>
+          <label class="row">
+            <span>Force dark mode here</span>
+            <select id="meta-dark">
+              <option value="">Use global default</option>
+              <option value="true">Always on</option>
+              <option value="false">Always off</option>
+            </select>
+          </label>
+          <p class="hint">
+            Storage in use:
+            <code id="storage-bytes">…</code> /
+            <code>~100 KB</code> total in <code>chrome.storage.sync</code>.
+          </p>
+          <p class="hint">
+            JS toggle (block JavaScript on this site) lives in the toolbar
+            popup — it uses Chrome's content settings, not storage.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="add-site-dialog">
+      <form method="dialog">
+        <h3>Add site</h3>
+        <p class="hint">Enter a hostname (no protocol, no path). Example: <code>news.ycombinator.com</code></p>
+        <input id="add-site-input" type="text" placeholder="example.com" autocomplete="off" />
+        <menu>
+          <button value="cancel">Cancel</button>
+          <button id="add-site-confirm" value="add">Add</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <script src="options.js" type="module"></script>
+  </body>
+</html>

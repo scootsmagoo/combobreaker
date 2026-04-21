@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="popup.css" />
+    <title>ComboBreaker</title>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <img src="../icons/icon32.png" alt="" width="24" height="24" />
+        <span>ComboBreaker</span>
+      </div>
+      <button id="open-options" class="icon-btn" title="Open settings">⚙</button>
+    </header>
+
+    <section class="site-bar">
+      <span class="label">Site</span>
+      <span id="site-name" class="site-name">—</span>
+    </section>
+
+    <section class="toggles" aria-label="Per-site toggles">
+      <label class="row">
+        <span>Dark mode</span>
+        <input type="checkbox" id="t-darkmode" />
+      </label>
+      <label class="row">
+        <span>JavaScript</span>
+        <input type="checkbox" id="t-js" />
+      </label>
+      <label class="row">
+        <span>Custom CSS</span>
+        <input type="checkbox" id="t-css" />
+      </label>
+      <label class="row">
+        <span>Custom JS</span>
+        <input type="checkbox" id="t-userjs" />
+      </label>
+    </section>
+
+    <section class="tools" aria-label="Tools">
+      <button class="tool" data-tool="color-picker" title="Pick a color from the page">
+        <span class="ico">◉</span><span>Color picker</span>
+      </button>
+      <button class="tool" data-tool="ruler" title="Show pixel ruler">
+        <span class="ico">⟷</span><span>Ruler</span>
+      </button>
+      <button class="tool" data-tool="whatfont" title="Inspect font on hover">
+        <span class="ico">A</span><span>Font inspector</span>
+      </button>
+      <button class="tool" data-tool="screenshot" title="Save full-page PNG">
+        <span class="ico">▢</span><span>Full screenshot</span>
+      </button>
+      <button class="tool" data-tool="encoding" title="Override character encoding">
+        <span class="ico">編</span><span>Encoding…</span>
+      </button>
+      <button class="tool" data-tool="edit-css" title="Open the CSS editor for this site">
+        <span class="ico">{}</span><span>Edit CSS</span>
+      </button>
+      <button class="tool" data-tool="edit-js" title="Open the JS editor for this site">
+        <span class="ico">JS</span><span>Edit JS</span>
+      </button>
+    </section>
+
+    <section class="globals">
+      <label class="row sm">
+        <span>Adblock (basic)</span>
+        <input type="checkbox" id="g-adblock" />
+      </label>
+      <label class="row sm">
+        <span>JSON pretty-print</span>
+        <input type="checkbox" id="g-json" />
+      </label>
+    </section>
+
+    <div id="status" class="status" hidden></div>
+
+    <dialog id="encoding-dialog">
+      <form method="dialog">
+        <h3>Override encoding</h3>
+        <select id="encoding-select">
+          <option value="utf-8">UTF-8</option>
+          <option value="windows-1252">Windows-1252 (Western)</option>
+          <option value="iso-8859-1">ISO-8859-1</option>
+          <option value="iso-8859-2">ISO-8859-2 (Central Eu)</option>
+          <option value="iso-8859-15">ISO-8859-15</option>
+          <option value="windows-1251">Windows-1251 (Cyrillic)</option>
+          <option value="koi8-r">KOI8-R</option>
+          <option value="shift_jis">Shift-JIS</option>
+          <option value="euc-jp">EUC-JP</option>
+          <option value="iso-2022-jp">ISO-2022-JP</option>
+          <option value="gbk">GBK (Simplified)</option>
+          <option value="gb18030">GB18030</option>
+          <option value="big5">Big5 (Traditional)</option>
+          <option value="euc-kr">EUC-KR (Korean)</option>
+        </select>
+        <menu>
+          <button value="cancel">Cancel</button>
+          <button id="encoding-apply" value="apply">Apply</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script src="popup.js" type="module"></script>
+  </body>
+</html>

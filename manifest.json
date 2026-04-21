@@ -1,0 +1,127 @@
+{
+  "manifest_version": 3,
+  "name": "ComboBreaker",
+  "short_name": "ComboBreaker",
+  "version": "0.1.0",
+  "description": "A privacy-respecting toolbox that consolidates the small extensions you actually need: per-site JS/CSS, dark mode, color picker, ruler, font inspector, JSON formatter, full-page screenshot, encoding override, and basic adblock. No telemetry. Ever.",
+  "author": "scootsmagoo",
+  "minimum_chrome_version": "116",
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+
+  "action": {
+    "default_title": "ComboBreaker",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+
+  "background": {
+    "service_worker": "background/service_worker.js",
+    "type": "module"
+  },
+
+  "permissions": [
+    "storage",
+    "activeTab",
+    "tabs",
+    "scripting",
+    "contentSettings",
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback",
+    "downloads"
+  ],
+
+  "optional_permissions": [
+    "clipboardWrite"
+  ],
+
+  "host_permissions": [
+    "<all_urls>"
+  ],
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "run_at": "document_start",
+      "all_frames": false,
+      "js": ["content/site_injector.js"]
+    },
+    {
+      "matches": ["<all_urls>"],
+      "run_at": "document_end",
+      "all_frames": false,
+      "js": ["content/json_formatter.js"]
+    }
+  ],
+
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "tools/color_picker.js",
+        "tools/ruler.js",
+        "tools/whatfont.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "combobreaker_basic_block",
+        "enabled": true,
+        "path": "rules/basic_block.json"
+      }
+    ]
+  },
+
+  "chrome_settings_overrides": {
+    "search_provider": {
+      "name": "Kagi",
+      "keyword": "kagi",
+      "search_url": "https://kagi.com/search?q={searchTerms}",
+      "favicon_url": "https://kagi.com/favicon.ico",
+      "encoding": "UTF-8",
+      "is_default": true
+    }
+  },
+
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+C"
+      },
+      "description": "Open ComboBreaker popup"
+    },
+    "toggle-darkmode": {
+      "suggested_key": {
+        "default": "Alt+Shift+D"
+      },
+      "description": "Toggle dark mode for the current site"
+    },
+    "toggle-js": {
+      "description": "Toggle JavaScript for the current site"
+    },
+    "pick-color": {
+      "suggested_key": {
+        "default": "Alt+Shift+C"
+      },
+      "description": "Pick a color from the page"
+    }
+  }
+}
