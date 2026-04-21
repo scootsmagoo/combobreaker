@@ -48,6 +48,7 @@
 
   let CURRENT_DARK_ON = null;
 
+  installDarkReaderFetchBridge();
   load();
 
   async function load() {
@@ -137,6 +138,46 @@
         theme: theme || null,
       })
       .catch(() => {});
+  }
+
+  // Bridges Dark Reader's setFetchMethod (running in MAIN world, subject
+  // to page CORS) to the service worker (which has <all_urls> and can
+  // read cross-origin CSS). The MAIN-world side of this bridge is
+  // installed by service_worker.js right after vendor/darkreader.js
+  // loads. Listener is registered unconditionally so it's ready before
+  // Dark Reader gets injected later in the page's lifecycle.
+  function installDarkReaderFetchBridge() {
+    const REQ = "__cb_dr_request__";
+    const RES = "__cb_dr_response__";
+
+    window.addEventListener("message", async (e) => {
+      if (e.source !== window) return;
+      const m = e.data;
+      if (!m || typeof m !== "object" || m.kind !== REQ) return;
+      try {
+        const resp = await chrome.runtime.sendMessage({
+          type: "cb-dr-fetch",
+          url: m.url,
+        });
+        if (!resp || !resp.ok) {
+          throw new Error((resp && resp.error) || "no response");
+        }
+        window.postMessage(
+          {
+            kind: RES,
+            id: m.id,
+            body: resp.result.body,
+            contentType: resp.result.contentType,
+          },
+          "*"
+        );
+      } catch (err) {
+        window.postMessage(
+          { kind: RES, id: m.id, error: String(err.message || err) },
+          "*"
+        );
+      }
+    });
   }
 
   // Live updates. Popup or options changing storage should immediately

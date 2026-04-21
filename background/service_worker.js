@@ -45,6 +45,8 @@ async function handleMessage(msg, sender) {
       return await setGlobal(msg.patch);
     case "apply-dark-mode":
       return await applyDarkMode(sender?.tab?.id, msg.enabled, msg.theme);
+    case "cb-dr-fetch":
+      return await drFetch(msg.url);
     case "toggle-darkmode-global":
       return await toggleDarkModeGlobal();
     case "toggle-darkmode-site":
@@ -139,6 +141,16 @@ async function applyDarkMode(tabId, enabled, theme) {
           world: "MAIN",
           injectImmediately: true,
         });
+        // Install the cross-origin fetch proxy. Dark Reader runs in MAIN
+        // world and so its window.fetch is subject to page CORS; routing
+        // stylesheet fetches back through the SW (which has <all_urls>)
+        // is the documented escape hatch.
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          func: installDarkReaderFetchProxy,
+          world: "MAIN",
+          injectImmediately: true,
+        });
         DR_LOADED_TABS.add(tabId);
       } catch (e) {
         // Likely an unsupported page (chrome://, file:, store, etc.)
@@ -187,6 +199,65 @@ async function toggleDarkModeGlobal() {
   const next = !g.darkMode.enabled;
   await setGlobal({ darkMode: { enabled: next } });
   return { darkMode: next };
+}
+
+// Runs in MAIN world right after vendor/darkreader.js is injected.
+// Sets up a postMessage-based bridge so Dark Reader can fetch
+// cross-origin stylesheets through our service worker (which has the
+// <all_urls> permission and isn't bound by page-level CORS).
+function installDarkReaderFetchProxy() {
+  if (window.__cb_dr_fetch_installed) return;
+  window.__cb_dr_fetch_installed = true;
+  if (!window.DarkReader || typeof window.DarkReader.setFetchMethod !== "function") return;
+
+  const REQ = "__cb_dr_request__";
+  const RES = "__cb_dr_response__";
+  const pending = new Map();
+  let nextId = 0;
+
+  window.addEventListener("message", (e) => {
+    if (e.source !== window) return;
+    const m = e.data;
+    if (!m || typeof m !== "object" || m.kind !== RES) return;
+    const p = pending.get(m.id);
+    if (!p) return;
+    pending.delete(m.id);
+    if (m.error) {
+      p.reject(new Error(m.error));
+    } else {
+      p.resolve(
+        new Response(m.body, {
+          status: 200,
+          headers: { "Content-Type": m.contentType || "text/css" },
+        })
+      );
+    }
+  });
+
+  window.DarkReader.setFetchMethod((url) =>
+    new Promise((resolve, reject) => {
+      const id = ++nextId;
+      pending.set(id, { resolve, reject });
+      window.postMessage({ kind: REQ, id, url: String(url) }, "*");
+      setTimeout(() => {
+        if (pending.has(id)) {
+          pending.delete(id);
+          reject(new Error("[ComboBreaker] dark-mode fetch timed out: " + url));
+        }
+      }, 15000);
+    })
+  );
+}
+
+// SW-side fetcher used by the bridge. Best-effort: returns text + the
+// content-type header. CSS-like resources are the only thing we expect.
+async function drFetch(url) {
+  if (!url || typeof url !== "string") throw new Error("url required");
+  const r = await fetch(url, { credentials: "omit" });
+  if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`);
+  const body = await r.text();
+  const contentType = r.headers.get("content-type") || "text/css";
+  return { body, contentType };
 }
 
 // Per-site toggle: cycles based on what's *currently visible* on this page,
