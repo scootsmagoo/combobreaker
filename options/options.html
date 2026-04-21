@@ -94,6 +94,7 @@
           <div class="editor-tabs">
             <button class="tab active" data-tab="css">CSS</button>
             <button class="tab" data-tab="js">JS</button>
+            <button class="tab" data-tab="headers">Headers</button>
             <button class="tab" data-tab="meta">Settings</button>
           </div>
           <div class="editor-actions">
@@ -116,6 +117,41 @@ body { font-family: 'Iosevka', monospace; }
           <textarea id="js-area" spellcheck="false" placeholder="// Your JS for this site (runs in the page world)
 console.log('hello from ComboBreaker');
 "></textarea>
+        </div>
+
+        <div id="pane-headers" class="pane headers-pane" hidden>
+          <div class="headers-section">
+            <div class="headers-section-head">
+              <h3>Request headers</h3>
+              <button type="button" id="add-req-header" class="ghost-btn">+ Add</button>
+            </div>
+            <p class="hint">
+              Modify outgoing requests to this site. Useful for
+              <code>User-Agent</code>, <code>Accept-Language</code>,
+              <code>Authorization</code>, custom debug headers, etc.
+            </p>
+            <div id="req-headers" class="header-rules"></div>
+          </div>
+
+          <div class="headers-section">
+            <div class="headers-section-head">
+              <h3>Response headers</h3>
+              <button type="button" id="add-res-header" class="ghost-btn">+ Add</button>
+            </div>
+            <p class="hint">
+              Modify response headers as the browser receives them. Useful for
+              loosening <code>Content-Security-Policy</code>,
+              <code>X-Frame-Options</code>, or stripping
+              <code>Set-Cookie</code> on third-party iframes.
+            </p>
+            <div id="res-headers" class="header-rules"></div>
+          </div>
+
+          <p class="hint">
+            Powered by Chrome's <code>declarativeNetRequest</code>. Rules apply
+            to all requests where the destination domain is
+            <code id="headers-site-label">—</code>. Save to apply.
+          </p>
         </div>
 
         <div id="pane-meta" class="pane meta-pane" hidden>

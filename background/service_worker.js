@@ -4,6 +4,7 @@ import {
   setGlobal,
   getSite,
   setSite,
+  listSites,
   effectiveDarkModeFor,
 } from "../lib/storage.js";
 import { siteKeyFromUrl, originPatternForSite } from "../lib/site.js";
@@ -11,11 +12,13 @@ import { siteKeyFromUrl, originPatternForSite } from "../lib/site.js";
 chrome.runtime.onInstalled.addListener(async () => {
   await ensureSchema();
   await applyAdblockState();
+  await reapplyAllHeaderRules();
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   await ensureSchema();
   await applyAdblockState();
+  await reapplyAllHeaderRules();
 });
 
 // ---------- Message router ----------
@@ -63,6 +66,10 @@ async function handleMessage(msg, sender) {
       return await getRedirectChain(msg.tabId);
     case "clear-redirect-chain":
       return await clearRedirectChain(msg.tabId);
+    case "get-response-headers":
+      return await getResponseHeaders(msg.tabId);
+    case "apply-site-headers":
+      return await applySiteHeaderRules(msg.siteKey);
     default:
       throw new Error(`unknown message type: ${msg?.type}`);
   }
@@ -524,6 +531,191 @@ chrome.webRequest.onCompleted.addListener(
 chrome.tabs.onRemoved.addListener((tabId) => {
   chrome.storage.session.remove(REDIRECT_KEY(tabId)).catch(() => {});
 });
+
+// ---------- Response-header capture (per tab) ----------
+// Mirrors the redirect tracer: main_frame only, kept in chrome.storage.session
+// so the data survives SW sleeps. We store the *latest* main_frame response
+// (chain end), not every request — the popup is for "what's the current page".
+
+const HEADERS_KEY = (tabId) => `headers:${tabId}`;
+
+chrome.webRequest.onResponseStarted.addListener(
+  (details) => {
+    if (details.type !== "main_frame" || details.tabId < 0) return;
+    const entry = {
+      url: details.url,
+      status: details.statusCode,
+      time: Date.now(),
+      headers: (details.responseHeaders || []).map((h) => ({
+        name: h.name,
+        value: h.value ?? (h.binaryValue ? "(binary)" : ""),
+      })),
+    };
+    chrome.storage.session
+      .set({ [HEADERS_KEY(details.tabId)]: entry })
+      .catch(() => {});
+  },
+  { urls: ["<all_urls>"], types: ["main_frame"] },
+  ["responseHeaders"]
+);
+
+async function getResponseHeaders(tabId) {
+  if (tabId == null || tabId < 0) return null;
+  const key = HEADERS_KEY(tabId);
+  const data = await chrome.storage.session.get(key);
+  return data[key] || null;
+}
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  chrome.storage.session.remove(HEADERS_KEY(tabId)).catch(() => {});
+});
+
+// ---------- Per-site header overrides (DNR dynamic rules) ----------
+//
+// We translate each site's requestHeaders / responseHeaders arrays into a
+// pair of DNR dynamic rules (one for request, one for response). Stable rule
+// IDs are stored in chrome.storage.local so updates can cleanly remove the
+// old rules before adding the new ones.
+//
+// Layout in chrome.storage.local:
+//   cb_header_rule_seq : number              (monotonic, never reused)
+//   cb_header_rule_map : { [siteKey]: number[] }
+//
+// The DNR `requestDomains` condition matches the *request initiator* for
+// subresources and the destination for top-level requests, which is exactly
+// what "headers for site X" means.
+
+const HEADER_VALID_OPS = new Set(["set", "append", "remove"]);
+const HEADER_RESOURCE_TYPES = [
+  "main_frame",
+  "sub_frame",
+  "stylesheet",
+  "script",
+  "image",
+  "font",
+  "object",
+  "xmlhttprequest",
+  "ping",
+  "csp_report",
+  "media",
+  "websocket",
+  "webtransport",
+  "webbundle",
+  "other",
+];
+
+function sanitizeHeaderRules(rules) {
+  if (!Array.isArray(rules)) return [];
+  const out = [];
+  for (const r of rules) {
+    if (!r || typeof r !== "object") continue;
+    const name = String(r.name || "").trim();
+    const op = HEADER_VALID_OPS.has(r.op) ? r.op : "set";
+    if (!name) continue;
+    const value = op === "remove" ? "" : String(r.value ?? "");
+    if (op !== "remove" && value === "") continue;
+    out.push({ name, op, value });
+  }
+  return out;
+}
+
+async function nextHeaderRuleId() {
+  const data = await chrome.storage.local.get("cb_header_rule_seq");
+  // Start above any plausible static-ruleset ID. DNR docs reserve no specific
+  // range, but keeping our IDs in the millions keeps the namespace tidy.
+  const next = (data.cb_header_rule_seq || 1_000_000) + 1;
+  await chrome.storage.local.set({ cb_header_rule_seq: next });
+  return next;
+}
+
+async function getHeaderRuleMap() {
+  const data = await chrome.storage.local.get("cb_header_rule_map");
+  return data.cb_header_rule_map || {};
+}
+
+async function setHeaderRuleMap(map) {
+  await chrome.storage.local.set({ cb_header_rule_map: map });
+}
+
+function buildHeaderRule(id, siteKey, kind, headers) {
+  // kind === "request" | "response"
+  const action = {
+    type: "modifyHeaders",
+    [kind === "request" ? "requestHeaders" : "responseHeaders"]: headers.map((h) =>
+      h.op === "remove"
+        ? { header: h.name, operation: "remove" }
+        : { header: h.name, operation: h.op, value: h.value }
+    ),
+  };
+  return {
+    id,
+    priority: 1,
+    action,
+    condition: {
+      requestDomains: [siteKey],
+      resourceTypes: HEADER_RESOURCE_TYPES,
+    },
+  };
+}
+
+async function applySiteHeaderRules(siteKey) {
+  if (!siteKey) return { applied: 0 };
+  const settings = await getSite(siteKey);
+  return await syncSiteHeaderRules(siteKey, settings);
+}
+
+async function syncSiteHeaderRules(siteKey, settings) {
+  const reqHeaders = sanitizeHeaderRules(settings.requestHeaders);
+  const resHeaders = sanitizeHeaderRules(settings.responseHeaders);
+
+  const map = await getHeaderRuleMap();
+  const oldIds = map[siteKey] || [];
+  const newRules = [];
+
+  if (reqHeaders.length) {
+    newRules.push(buildHeaderRule(await nextHeaderRuleId(), siteKey, "request", reqHeaders));
+  }
+  if (resHeaders.length) {
+    newRules.push(buildHeaderRule(await nextHeaderRuleId(), siteKey, "response", resHeaders));
+  }
+
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: oldIds,
+    addRules: newRules,
+  });
+
+  if (newRules.length) {
+    map[siteKey] = newRules.map((r) => r.id);
+  } else {
+    delete map[siteKey];
+  }
+  await setHeaderRuleMap(map);
+
+  return { applied: newRules.length, requestCount: reqHeaders.length, responseCount: resHeaders.length };
+}
+
+async function reapplyAllHeaderRules() {
+  // On startup, reconcile DNR dynamic rules with what's actually in storage.
+  // Drop every rule we previously created, then rebuild from current site
+  // settings. This keeps things sane after schema changes or storage edits.
+  const map = await getHeaderRuleMap();
+  const toRemove = [];
+  for (const ids of Object.values(map)) toRemove.push(...ids);
+  if (toRemove.length) {
+    await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: toRemove });
+  }
+  await setHeaderRuleMap({});
+
+  const sites = await listSites();
+  for (const { siteKey, settings } of sites) {
+    if (
+      (settings.requestHeaders && settings.requestHeaders.length) ||
+      (settings.responseHeaders && settings.responseHeaders.length)
+    ) {
+      await syncSiteHeaderRules(siteKey, settings);
+    }
+  }
+}
 
 // ---------- Keyboard commands ----------
 

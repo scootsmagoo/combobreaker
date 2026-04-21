@@ -20,6 +20,7 @@
     <nav class="tabs" role="tablist">
       <button class="tab active" data-tab="site" role="tab">Site</button>
       <button class="tab" data-tab="cookies" role="tab">Cookies</button>
+      <button class="tab" data-tab="headers" role="tab">Headers</button>
       <button class="tab" data-tab="redirects" role="tab">Redirects</button>
       <button class="tab" data-tab="tools" role="tab">Tools</button>
     </nav>
@@ -72,6 +73,19 @@
           <button id="cookies-nuke" class="danger-btn" title="Delete every cookie for this site">Nuke all</button>
         </div>
         <div id="cookies-list" class="cookies-list">
+          <div class="empty muted">Loading…</div>
+        </div>
+      </section>
+
+      <!-- ───────── Headers pane ───────── -->
+      <section id="pane-headers" class="pane">
+        <div class="cookies-toolbar">
+          <span id="headers-status" class="muted">—</span>
+          <button id="headers-refresh" class="ghost-btn" title="Refresh">↻</button>
+          <button id="headers-edit" class="ghost-btn" title="Edit overrides for this site in Options">Edit overrides →</button>
+        </div>
+        <div id="headers-overrides" class="headers-overrides muted"></div>
+        <div id="headers-list" class="headers-list">
           <div class="empty muted">Loading…</div>
         </div>
       </section>

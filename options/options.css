@@ -258,6 +258,66 @@ dialog button[value="add"] {
   font-weight: 600;
 }
 
+.headers-pane {
+  padding: 16px 20px;
+  overflow-y: auto;
+}
+.headers-section {
+  margin-bottom: 24px;
+}
+.headers-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.headers-section-head h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.headers-section .hint {
+  margin-bottom: 10px;
+}
+.header-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.header-rules:empty::before {
+  content: "No rules. Click + Add to create one.";
+  color: var(--fg-dim);
+  font-size: 12px;
+  font-style: italic;
+}
+.header-rule {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 90px minmax(180px, 2fr) 32px;
+  gap: 6px;
+  align-items: center;
+}
+.header-rule input[type="text"],
+.header-rule select {
+  background: var(--bg-3);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+.header-rule input[type="text"]:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.header-rule .h-del {
+  padding: 6px 0;
+  font-size: 11px;
+}
+
 .meta-pane select {
   background: var(--bg-3);
   color: var(--fg);

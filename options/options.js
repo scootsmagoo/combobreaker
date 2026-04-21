@@ -57,6 +57,9 @@ async function init() {
   $("js-area").addEventListener("input", () => (STATE.dirty = true));
   $("meta-dark").addEventListener("change", () => (STATE.dirty = true));
 
+  $("add-req-header").addEventListener("click", () => addHeaderRow("req"));
+  $("add-res-header").addEventListener("click", () => addHeaderRow("res"));
+
   $("add-site").addEventListener("click", () => {
     $("add-site-input").value = "";
     $("add-site-dialog").showModal();
@@ -90,7 +93,7 @@ function parseHash() {
   const h = location.hash.replace(/^#/, "");
   if (!h) return;
   const [tab, site] = h.split("/");
-  if (tab && ["css", "js", "meta"].includes(tab)) STATE.activeTab = tab;
+  if (tab && ["css", "js", "headers", "meta"].includes(tab)) STATE.activeTab = tab;
   if (site) selectSite(decodeURIComponent(site));
   switchTab(STATE.activeTab);
 }
@@ -147,6 +150,9 @@ async function selectSite(siteKey, isNew = false) {
   $("js-area").value = STATE.activeSettings.js || "";
   const dm = STATE.activeSettings.darkMode;
   $("meta-dark").value = dm === "on" || dm === "off" ? dm : "";
+  $("headers-site-label").textContent = siteKey;
+  renderHeaderRules("req", STATE.activeSettings.requestHeaders || []);
+  renderHeaderRules("res", STATE.activeSettings.responseHeaders || []);
   updateEnabledToggle();
   renderSites();
 }
@@ -174,6 +180,7 @@ function switchTab(tab) {
   });
   $("pane-css").hidden = tab !== "css";
   $("pane-js").hidden = tab !== "js";
+  $("pane-headers").hidden = tab !== "headers";
   $("pane-meta").hidden = tab !== "meta";
   if (tab === "meta") refreshStorageBytes();
   if (STATE.activeSettings) updateEnabledToggle();
@@ -204,6 +211,10 @@ async function saveActive() {
   }
   const meta = $("meta-dark").value;
   patch.darkMode = meta === "on" || meta === "off" ? meta : null;
+  // Headers are read straight off the DOM each save so unsaved row edits
+  // outside the active tab don't get lost.
+  patch.requestHeaders = readHeaderRules("req");
+  patch.responseHeaders = readHeaderRules("res");
   STATE.activeSettings = await setSite(STATE.activeSite, patch);
   STATE.dirty = false;
   await refreshSites();
@@ -211,6 +222,9 @@ async function saveActive() {
   toast("Saved", "ok");
 
   broadcastSiteChange(STATE.activeSite, STATE.activeSettings);
+  chrome.runtime
+    .sendMessage({ type: "apply-site-headers", siteKey: STATE.activeSite })
+    .catch(() => {});
 }
 
 async function broadcastSiteChange(siteKey, settings) {
@@ -241,15 +255,107 @@ async function broadcastSiteChange(siteKey, settings) {
 async function deleteActive() {
   if (!STATE.activeSite) return;
   if (!confirm(`Delete all settings for ${STATE.activeSite}?`)) return;
-  await deleteSite(STATE.activeSite);
+  const removedSite = STATE.activeSite;
+  await deleteSite(removedSite);
   STATE.activeSite = null;
   STATE.activeSettings = null;
   STATE.dirty = false;
   $("css-area").value = "";
   $("js-area").value = "";
+  $("req-headers").innerHTML = "";
+  $("res-headers").innerHTML = "";
   $("editor-site").textContent = "Pick a site →";
   await refreshSites();
   toast("Deleted", "ok");
+
+  // Tear down any DNR rules we created for this site.
+  chrome.runtime
+    .sendMessage({ type: "apply-site-headers", siteKey: removedSite })
+    .catch(() => {});
+}
+
+// ─────────────────── Header rules editor ───────────────────
+
+const HEADER_OPS = ["set", "append", "remove"];
+
+function renderHeaderRules(kind, rules) {
+  const container = $(kind === "req" ? "req-headers" : "res-headers");
+  container.innerHTML = "";
+  for (const r of rules) container.appendChild(buildHeaderRow(kind, r));
+}
+
+function addHeaderRow(kind) {
+  const container = $(kind === "req" ? "req-headers" : "res-headers");
+  container.appendChild(buildHeaderRow(kind, { name: "", op: "set", value: "" }));
+  STATE.dirty = true;
+}
+
+function buildHeaderRow(kind, rule) {
+  const row = document.createElement("div");
+  row.className = "header-rule";
+
+  const name = document.createElement("input");
+  name.type = "text";
+  name.className = "h-name";
+  name.placeholder = kind === "req" ? "User-Agent" : "X-Frame-Options";
+  name.value = rule.name || "";
+  name.spellcheck = false;
+  name.addEventListener("input", () => (STATE.dirty = true));
+
+  const op = document.createElement("select");
+  op.className = "h-op";
+  for (const o of HEADER_OPS) {
+    const opt = document.createElement("option");
+    opt.value = o;
+    opt.textContent = o;
+    op.appendChild(opt);
+  }
+  op.value = HEADER_OPS.includes(rule.op) ? rule.op : "set";
+
+  const value = document.createElement("input");
+  value.type = "text";
+  value.className = "h-value";
+  value.placeholder = "value";
+  value.value = rule.value || "";
+  value.spellcheck = false;
+  value.disabled = op.value === "remove";
+  value.addEventListener("input", () => (STATE.dirty = true));
+
+  op.addEventListener("change", () => {
+    value.disabled = op.value === "remove";
+    if (op.value === "remove") value.value = "";
+    STATE.dirty = true;
+  });
+
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "danger-btn h-del";
+  del.textContent = "✕";
+  del.title = "Remove rule";
+  del.addEventListener("click", () => {
+    row.remove();
+    STATE.dirty = true;
+  });
+
+  row.appendChild(name);
+  row.appendChild(op);
+  row.appendChild(value);
+  row.appendChild(del);
+  return row;
+}
+
+function readHeaderRules(kind) {
+  const container = $(kind === "req" ? "req-headers" : "res-headers");
+  const out = [];
+  for (const row of container.querySelectorAll(".header-rule")) {
+    const name = row.querySelector(".h-name").value.trim();
+    const op = row.querySelector(".h-op").value;
+    const value = row.querySelector(".h-value").value;
+    if (!name) continue;
+    if (op !== "remove" && !value) continue;
+    out.push({ name, op, value: op === "remove" ? "" : value });
+  }
+  return out;
 }
 
 // ─────────────────── Dark-mode tuning ───────────────────
