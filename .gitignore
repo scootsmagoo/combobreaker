@@ -14,6 +14,9 @@ build/
 *.crx
 *.pem
 
+# Chrome-generated when the unpacked extension is loaded
+_metadata/
+
 # Logs
 *.log
 npm-debug.log*
