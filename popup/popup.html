@@ -131,6 +131,242 @@
           <button class="tool" data-tool="screenshot"><span class="ico">▢</span><span>Full screenshot</span></button>
           <button class="tool" data-tool="encoding"><span class="ico">編</span><span>Encoding…</span></button>
         </div>
+
+        <div class="utilities" id="utilities">
+          <h4 class="util-heading">Utilities</h4>
+
+          <details class="util" data-util="qr">
+            <summary><span class="ico">▦</span><span>QR code (current URL)</span></summary>
+            <div class="util-body">
+              <label class="util-field">
+                <span>Text</span>
+                <textarea id="qr-text" rows="2" spellcheck="false"></textarea>
+              </label>
+              <div class="util-row">
+                <label class="util-inline">
+                  <span>EC level</span>
+                  <select id="qr-ec">
+                    <option value="L">L (~7%)</option>
+                    <option value="M" selected>M (~15%)</option>
+                    <option value="Q">Q (~25%)</option>
+                    <option value="H">H (~30%)</option>
+                  </select>
+                </label>
+                <button type="button" class="ghost-btn" id="qr-reset" title="Reset to current tab URL">↻ URL</button>
+                <button type="button" class="ghost-btn" id="qr-save" title="Save as PNG">Save</button>
+              </div>
+              <div class="qr-canvas-wrap">
+                <canvas id="qr-canvas" width="232" height="232"></canvas>
+              </div>
+              <div class="util-note muted" id="qr-note"></div>
+            </div>
+          </details>
+
+          <details class="util" data-util="jwt">
+            <summary><span class="ico">⟁</span><span>JWT decoder</span></summary>
+            <div class="util-body">
+              <label class="util-field">
+                <span>Token</span>
+                <textarea id="jwt-input" rows="3" spellcheck="false" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.…"></textarea>
+              </label>
+              <div class="util-note" id="jwt-status"></div>
+              <div class="jwt-section" id="jwt-header-section" hidden>
+                <div class="util-sublabel">Header</div>
+                <pre class="util-code" id="jwt-header"></pre>
+              </div>
+              <div class="jwt-section" id="jwt-payload-section" hidden>
+                <div class="util-sublabel">Payload</div>
+                <pre class="util-code" id="jwt-payload"></pre>
+              </div>
+              <div class="jwt-section" id="jwt-times-section" hidden>
+                <div class="util-sublabel">Claims</div>
+                <div class="jwt-times" id="jwt-times"></div>
+              </div>
+            </div>
+          </details>
+
+          <details class="util" data-util="encode">
+            <summary><span class="ico">⇄</span><span>Encoder / decoder</span></summary>
+            <div class="util-body">
+              <div class="util-row">
+                <label class="util-inline">
+                  <span>Mode</span>
+                  <select id="enc-mode">
+                    <option value="base64">Base64</option>
+                    <option value="base64url">Base64-URL</option>
+                    <option value="url">URL</option>
+                    <option value="urlcomp">URL component</option>
+                    <option value="hex">Hex (UTF-8)</option>
+                    <option value="html">HTML entity</option>
+                  </select>
+                </label>
+              </div>
+              <label class="util-field">
+                <span>Input</span>
+                <textarea id="enc-input" rows="3" spellcheck="false"></textarea>
+              </label>
+              <div class="util-row">
+                <button type="button" class="ghost-btn" id="enc-encode">Encode →</button>
+                <button type="button" class="ghost-btn" id="enc-decode">← Decode</button>
+                <button type="button" class="ghost-btn" id="enc-swap" title="Move output back into input">↕ Swap</button>
+                <button type="button" class="ghost-btn" id="enc-copy">Copy</button>
+              </div>
+              <label class="util-field">
+                <span>Output</span>
+                <textarea id="enc-output" rows="3" spellcheck="false" readonly></textarea>
+              </label>
+              <div class="util-note" id="enc-status"></div>
+            </div>
+          </details>
+
+          <details class="util" data-util="regex">
+            <summary><span class="ico">.*</span><span>Regex tester</span></summary>
+            <div class="util-body">
+              <div class="regex-line">
+                <span class="regex-slash">/</span>
+                <input type="text" id="re-pattern" spellcheck="false" placeholder="pattern" />
+                <span class="regex-slash">/</span>
+                <input type="text" id="re-flags" spellcheck="false" value="g" maxlength="8" />
+              </div>
+              <label class="util-field">
+                <span>Test text</span>
+                <textarea id="re-text" rows="4" spellcheck="false"></textarea>
+              </label>
+              <div class="util-sublabel"><span id="re-count" class="muted">no matches</span></div>
+              <pre class="util-code re-highlight" id="re-highlight"></pre>
+              <div class="util-note muted" id="re-error"></div>
+            </div>
+          </details>
+
+          <details class="util" data-util="time">
+            <summary><span class="ico">⏱</span><span>Timestamp converter</span></summary>
+            <div class="util-body">
+              <div class="util-row">
+                <button type="button" class="ghost-btn" id="ts-now">Now</button>
+                <span class="muted" id="ts-now-display"></span>
+              </div>
+              <label class="util-field">
+                <span>Unix (seconds or ms)</span>
+                <input type="text" id="ts-unix" spellcheck="false" placeholder="1745312400" />
+              </label>
+              <label class="util-field">
+                <span>ISO / human</span>
+                <input type="text" id="ts-iso" spellcheck="false" placeholder="2026-04-22T10:00:00Z" />
+              </label>
+              <div class="ts-rows" id="ts-rows"></div>
+              <div class="util-note muted" id="ts-status"></div>
+            </div>
+          </details>
+
+          <details class="util" data-util="color">
+            <summary><span class="ico">◐</span><span>Color converter / contrast</span></summary>
+            <div class="util-body">
+              <div class="color-row">
+                <label class="util-inline color-label">
+                  <span>FG</span>
+                  <input type="color" id="col-fg" value="#e7eaf3" />
+                  <input type="text" id="col-fg-text" spellcheck="false" value="#e7eaf3" />
+                </label>
+                <label class="util-inline color-label">
+                  <span>BG</span>
+                  <input type="color" id="col-bg" value="#101420" />
+                  <input type="text" id="col-bg-text" spellcheck="false" value="#101420" />
+                </label>
+              </div>
+              <div class="color-preview" id="col-preview">The quick brown fox jumps over the lazy dog. 0123</div>
+              <div class="color-formats">
+                <div class="util-sublabel">Foreground</div>
+                <pre class="util-code" id="col-fg-out"></pre>
+                <div class="util-sublabel">Background</div>
+                <pre class="util-code" id="col-bg-out"></pre>
+              </div>
+              <div class="contrast-row" id="col-contrast"></div>
+              <div class="util-note muted" id="col-status"></div>
+            </div>
+          </details>
+
+          <details class="util" data-util="diff">
+            <summary><span class="ico">≠</span><span>Diff viewer</span></summary>
+            <div class="util-body">
+              <label class="util-field">
+                <span>A (original)</span>
+                <textarea id="diff-a" rows="4" spellcheck="false"></textarea>
+              </label>
+              <label class="util-field">
+                <span>B (changed)</span>
+                <textarea id="diff-b" rows="4" spellcheck="false"></textarea>
+              </label>
+              <div class="util-row">
+                <label class="util-inline">
+                  <span>Mode</span>
+                  <select id="diff-mode">
+                    <option value="line" selected>Line</option>
+                    <option value="word">Word</option>
+                  </select>
+                </label>
+                <button type="button" class="ghost-btn" id="diff-copy">Copy unified</button>
+                <span class="muted" id="diff-stats"></span>
+              </div>
+              <pre class="util-code diff-out" id="diff-out"></pre>
+            </div>
+          </details>
+
+          <details class="util" data-util="fake">
+            <summary><span class="ico">№</span><span>Fake data / lorem ipsum</span></summary>
+            <div class="util-body">
+              <div class="util-row util-wrap">
+                <button type="button" class="ghost-btn" data-fake="name">Name</button>
+                <button type="button" class="ghost-btn" data-fake="email">Email</button>
+                <button type="button" class="ghost-btn" data-fake="phone">Phone</button>
+                <button type="button" class="ghost-btn" data-fake="address">Address</button>
+                <button type="button" class="ghost-btn" data-fake="cc">Test CC</button>
+                <button type="button" class="ghost-btn" data-fake="lorem-w">Lorem w</button>
+                <button type="button" class="ghost-btn" data-fake="lorem-s">Lorem sentence</button>
+                <button type="button" class="ghost-btn" data-fake="lorem-p">Lorem ¶</button>
+              </div>
+              <div class="util-row">
+                <label class="util-inline">
+                  <span>Count</span>
+                  <input type="number" id="fake-count" min="1" max="200" value="3" />
+                </label>
+                <button type="button" class="ghost-btn" id="fake-copy">Copy</button>
+              </div>
+              <textarea id="fake-out" rows="6" spellcheck="false" readonly></textarea>
+              <div class="util-note muted">Test CC numbers are valid Luhn but issuer-defined non-routable test BINs (Stripe / Adyen / etc).</div>
+            </div>
+          </details>
+
+          <details class="util" data-util="gen">
+            <summary><span class="ico">🔑</span><span>Password / UUID generator</span></summary>
+            <div class="util-body">
+              <div class="gen-grid">
+                <label class="util-inline">
+                  <span>Length</span>
+                  <input type="number" id="pw-len" min="4" max="128" value="20" />
+                </label>
+                <label class="util-inline">
+                  <span>Count</span>
+                  <input type="number" id="pw-count" min="1" max="50" value="1" />
+                </label>
+              </div>
+              <div class="util-row util-wrap">
+                <label class="util-checkbox"><input type="checkbox" id="pw-lower" checked /><span>a-z</span></label>
+                <label class="util-checkbox"><input type="checkbox" id="pw-upper" checked /><span>A-Z</span></label>
+                <label class="util-checkbox"><input type="checkbox" id="pw-digit" checked /><span>0-9</span></label>
+                <label class="util-checkbox"><input type="checkbox" id="pw-sym" /><span>!@#…</span></label>
+                <label class="util-checkbox"><input type="checkbox" id="pw-noambig" /><span>no ambiguous</span></label>
+              </div>
+              <div class="util-row util-wrap">
+                <button type="button" class="ghost-btn" id="pw-gen">Password ↻</button>
+                <button type="button" class="ghost-btn" id="pw-uuid">UUID v4</button>
+                <button type="button" class="ghost-btn" id="pw-copy">Copy</button>
+              </div>
+              <textarea id="pw-out" rows="4" spellcheck="false" readonly></textarea>
+              <div class="util-note muted" id="pw-status"></div>
+            </div>
+          </details>
+        </div>
+
         <div class="globals">
           <label class="row sm">
             <span>Adblock (basic)</span>
@@ -245,6 +481,7 @@
       </form>
     </dialog>
 
+    <script src="../vendor/qrcode-generator.js"></script>
     <script src="popup.js" type="module"></script>
   </body>
 </html>

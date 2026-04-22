@@ -23,6 +23,7 @@ Inspired by the spirit of [@levelsio's combo-extension thread](https://x.com/lev
 | **Full-page screenshot** | Scroll-and-stitch the entire page to a PNG download. |
 | **Video downloader** | A "Media" tab in the popup lists every `<video>`/`<audio>` element and every media response the page fetches (mp4, webm, mov, mp3, m4a, HLS `.m3u8`). One click downloads direct files via `chrome.downloads`. HLS streams open a dedicated downloader page that pulls every segment and saves a `.ts` file (run `ffmpeg -i input.ts -c copy output.mp4` if you want MP4). YouTube and other DRM/signed-stream sites get a "Copy yt-dlp command" button instead — see caveats below. |
 | **Encoding override** | Manually set character encoding for legacy/garbled pages. |
+| **Utility belt** | Tucked into the Tools tab — JWT decoder, encoder/decoder (Base64 / Base64-URL / URL / hex / HTML entity), regex tester with live highlights, Unix-timestamp ↔ ISO-date converter, color converter (hex / rgb / hsl / oklch) with WCAG contrast checker, line/word diff viewer, fake-data + lorem-ipsum generator, password / UUID generator, and a locally-rendered QR code for the current URL. Each tool is a `<details>` collapsible — open only what you need. Everything is client-side; no network calls. |
 | **Kagi search** | Sets Kagi as your default search provider on install. |
 | **Basic adblock** | Static `declarativeNetRequest` ruleset blocking common ad/tracker domains. |
 
@@ -77,7 +78,11 @@ You can rebind these in `chrome://extensions/shortcuts`.
 manifest.json              MV3 manifest, permissions, DNR, settings overrides
 background/                Service worker (commands, screenshot, content settings,
                            Dark Reader injection)
-popup/                     Toolbar popup (per-site toggles, tool launchers)
+popup/                     Toolbar popup (per-site toggles, tool launchers,
+                           utility belt)
+popup/utilities.js         All Tier-2 utility-belt tools (JWT, encoder, regex,
+                           timestamp, color, diff, fake data, password, QR).
+                           Lazy-rendered per <details>.
 options/                   Full-page options (CSS/JS editors, global prefs,
                            dark-mode tuning)
 content/site_injector.js   Runs at document_start on every page; loads per-site CSS/JS
@@ -86,7 +91,7 @@ content/json_formatter.js  Pretty-printer + tree viewer for JSON responses
 content/media_finder.js    DOM scanner for the video downloader
 tools/                     On-demand tools (color picker, ruler, whatfont)
 viewer/                    Extension pages (HLS downloader)
-vendor/                    Vendored third-party code (Dark Reader UMD bundle)
+vendor/                    Vendored third-party code (Dark Reader, qrcode-generator)
 rules/                     declarativeNetRequest rulesets
 lib/                       Shared storage + URL helpers
 icons/                     PNG icons
@@ -142,6 +147,7 @@ Third-party code is allowed but must be **vendored verbatim** under `vendor/`, w
 ## Acknowledgements
 
 - **Dark Reader** ([darkreader.org](https://darkreader.org/), MIT) — powers the dark-mode engine. Vendored at `vendor/darkreader.js`.
+- **qrcode-generator** by Kazuhiko Arase ([github](https://github.com/kazuhikoarase/qrcode-generator), MIT) — used by the QR utility. Vendored at `vendor/qrcode-generator.js`.
 - The JSON formatter's feature set (level controls, JSON-path display, view modes, theme cycling, `window.data` exposure) is inspired by [JSON Alexander](https://github.com/wesbos/JSON-Alexander) by Wes Bos (MIT). All code is original to ComboBreaker.
 
 ## License

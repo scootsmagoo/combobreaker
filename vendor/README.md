@@ -19,3 +19,20 @@ curl -sSL -o vendor/darkreader.LICENSE https://raw.githubusercontent.com/darkrea
 ```
 
 Then update the version number in this file.
+
+## qrcode-generator.js
+
+- **Source**: https://github.com/kazuhikoarase/qrcode-generator
+- **Version**: 1.4.4
+- **Bundle**: https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js (UMD, exposes `window.qrcode` — also a CommonJS export which the popup ignores).
+- **License**: MIT — see `qrcode-generator.LICENSE` (the upstream repo carries the license header inside each source file rather than a top-level `LICENSE`, so a copy of the standard MIT text crediting Kazuhiko Arase is bundled here).
+
+Used by the **QR code** utility under the popup's Tools tab to render the current page URL as a QR code on a `<canvas>`. Loaded as a classic script in `popup.html` (no network calls).
+
+To upgrade:
+
+```bash
+curl -sSL -o vendor/qrcode-generator.js https://cdn.jsdelivr.net/npm/qrcode-generator@<new-version>/qrcode.js
+```
+
+Then update the version number in this file.

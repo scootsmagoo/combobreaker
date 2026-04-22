@@ -1,5 +1,6 @@
 import { siteKeyFromUrl, prettySite } from "../lib/site.js";
 import { getGlobal, setGlobal } from "../lib/storage.js";
+import { initUtilities } from "./utilities.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -47,6 +48,7 @@ async function init() {
   bindMediaPane();
   bindToolsPane();
   bindDialogs();
+  initUtilities({ tab: STATE.tab, status });
 }
 
 // ─────────────────── Tab routing ───────────────────
