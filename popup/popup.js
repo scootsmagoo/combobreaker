@@ -1,4 +1,4 @@
-import { siteKeyFromUrl, prettySite } from "../lib/site.js";
+﻿import { siteKeyFromUrl, prettySite } from "../lib/site.js";
 import { getGlobal, setGlobal } from "../lib/storage.js";
 import { initUtilities } from "./utilities.js";
 
@@ -60,7 +60,7 @@ async function init() {
   }
 }
 
-// ─────────────────── Tab routing ───────────────────
+//  Tab routing 
 
 function bindTabs() {
   document.querySelectorAll(".tab[data-tab]").forEach((btn) => {
@@ -83,7 +83,7 @@ function switchTab(name) {
   if (name === "browse") loadBrowse();
 }
 
-// ─────────────────── Site pane ───────────────────
+//  Site pane 
 
 function renderSiteToggles() {
   const s = STATE.settings;
@@ -138,7 +138,7 @@ function bindSitePane() {
   );
 }
 
-// ─────────────────── Dark mode controls ───────────────────
+//  Dark mode controls 
 
 function bindDarkSection() {
   $("t-darkmode-global").addEventListener("change", async (e) => {
@@ -240,7 +240,7 @@ function debounce(fn, ms) {
   };
 }
 
-// ─────────────────── Cookies pane ───────────────────
+//  Cookies pane 
 // Uses chrome.cookies directly (popup has the permission).
 
 let COOKIES_CACHE = [];
@@ -430,7 +430,7 @@ async function saveCookie(e) {
   }
 }
 
-// ─────────────────── Headers pane ───────────────────
+//  Headers pane 
 
 function bindHeadersPane() {
   $("headers-refresh").addEventListener("click", () => loadHeaders(true));
@@ -529,10 +529,10 @@ function renderOverrideSummary(settings) {
   const parts = [];
   if (req) parts.push(`${req} request override${req === 1 ? "" : "s"}`);
   if (res) parts.push(`${res} response override${res === 1 ? "" : "s"}`);
-  el.textContent = parts.join(" · ") + " active.";
+  el.textContent = parts.join(" Â· ") + " active.";
 }
 
-// ─────────────────── Redirects pane ───────────────────
+//  Redirects pane 
 
 function bindRedirectsPane() {
   $("redirects-refresh").addEventListener("click", () => loadRedirects(true));
@@ -675,7 +675,7 @@ async function copyRedirects() {
   }
 }
 
-// ─────────────────── Media pane ───────────────────
+//  Media pane 
 
 const YT_HOSTS = new Set([
   "youtube.com",
@@ -886,10 +886,11 @@ function formatDurationShort(s) {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-// ─────────────────── Browse pane (Tier 3) ───────────────────
+//  Browse pane (Tier 3) 
 
 function bindBrowsePane() {
   $("browse-reader").addEventListener("click", onReaderView);
+  $("browse-structured-data").addEventListener("click", onStructuredDataView);
   $("browse-md-copy").addEventListener("click", onCopyMarkdown);
   $("browse-vp-btns").addEventListener("click", onViewportPreset);
   $("browse-session-save").addEventListener("click", onSaveSession);
@@ -902,8 +903,25 @@ async function onReaderView() {
   if (!STATE.tab) return;
   try {
     const r = await sendMessage({ type: "reader-open", tabId: STATE.tab.id });
-    if (r && r.ok) status("Reader tab opened", "ok");
-    else status((r && r.error) || "Reader could not run on this page", "err");
+    if (r && r.ok) {
+      status("Reader tab opened", "ok");
+    } else {
+      status((r && r.error) || "Reader could not run on this page", "err");
+    }
+  } catch (e) {
+    status(String((e && e.message) || e), "err");
+  }
+}
+
+async function onStructuredDataView() {
+  if (!STATE.tab) return;
+  try {
+    const r = await sendMessage({ type: "structured-data-open", tabId: STATE.tab.id });
+    if (r && r.ok) {
+      status("Structured data viewer opened", "ok");
+    } else {
+      status((r && r.error) || "Could not extract structured data from this page", "err");
+    }
   } catch (e) {
     status(String((e && e.message) || e), "err");
   }
@@ -1003,7 +1021,7 @@ function loadBrowse() {
         const c = (s.entries && s.entries.length) || 0;
         li.innerHTML = `<div class="browse-session-head"><span class="browse-session-name">${escapeHtml(
           n
-        )}</span> <span class="browse-sub muted">${c} tab${c === 1 ? "" : "s"} · ${escapeHtml(
+        )}</span> <span class="browse-sub muted">${c} tab${c === 1 ? "" : "s"} Â· ${escapeHtml(
           when
         )}</span></div>
         <div class="browse-session-actions">
@@ -1064,7 +1082,7 @@ async function onSaveSession() {
   try {
     const r = await sendMessage({ type: "save-tab-session", name: name || undefined });
     if (r && r.session) {
-      status(`Saved “${r.session.name}” (${r.session.entries.length} tab(s))`, "ok");
+      status(`Saved "${r.session.name}" (${r.session.entries.length} tab(s))`, "ok");
       $("browse-session-name").value = "";
       loadBrowse();
     }
@@ -1111,7 +1129,7 @@ async function onCloseDupes() {
   }
 }
 
-// ─────────────────── Tools pane ───────────────────
+//  Tools pane 
 
 function bindToolsPane() {
   $("g-adblock").addEventListener("change", async (e) => {
@@ -1161,7 +1179,7 @@ async function onTool(tool) {
   }
 }
 
-// ─────────────────── Dialog wiring ───────────────────
+//  Dialog wiring 
 
 function bindDialogs() {
   $("encoding-apply").addEventListener("click", async (e) => {
@@ -1178,7 +1196,7 @@ function bindDialogs() {
   $("cookie-save").addEventListener("click", saveCookie);
 }
 
-// ─────────────────── Plumbing ───────────────────
+//  Plumbing 
 
 function sendMessage(msg) {
   return new Promise((resolve, reject) => {

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -28,7 +28,7 @@
     </nav>
 
     <main>
-      <!-- ───────── Site pane ───────── -->
+      <!--  Site pane  -->
       <section id="pane-site" class="pane active">
         <div class="dark-section">
           <label class="row">
@@ -67,7 +67,7 @@
         </div>
       </section>
 
-      <!-- ───────── Cookies pane ───────── -->
+      <!--  Cookies pane  -->
       <section id="pane-cookies" class="pane">
         <div class="cookies-toolbar">
           <span id="cookies-count" class="muted">—</span>
@@ -79,7 +79,7 @@
         </div>
       </section>
 
-      <!-- ───────── Headers pane ───────── -->
+      <!--  Headers pane  -->
       <section id="pane-headers" class="pane">
         <div class="cookies-toolbar">
           <span id="headers-status" class="muted">—</span>
@@ -92,7 +92,7 @@
         </div>
       </section>
 
-      <!-- ───────── Redirects pane ───────── -->
+      <!--  Redirects pane  -->
       <section id="pane-redirects" class="pane">
         <div class="cookies-toolbar">
           <span id="redirects-count" class="muted">—</span>
@@ -105,7 +105,7 @@
         </div>
       </section>
 
-      <!-- ───────── Media pane ───────── -->
+      <!--  Media pane  -->
       <section id="pane-media" class="pane">
         <div class="cookies-toolbar">
           <span id="media-count" class="muted">—</span>
@@ -123,7 +123,7 @@
         </div>
       </section>
 
-      <!-- ───────── Browse (Tier 3) pane ───────── -->
+      <!--  Browse (Tier 3) pane  -->
       <section id="pane-browse" class="pane">
         <div class="browse-block">
           <h4 class="util-heading">Reader and Markdown</h4>
@@ -132,6 +132,13 @@
             <button type="button" class="ghost-btn" id="browse-reader" title="Open article in a reader tab">Reader view</button>
             <button type="button" class="ghost-btn" id="browse-md-copy" title="Copy the page as Markdown to the clipboard">Copy as Markdown</button>
           </div>
+        </div>
+        <div class="browse-block">
+            <h4 class="util-heading">Structured Data (JSON-LD)</h4>
+            <p class="hint browse-hint">Extract and analyze JSON-LD, microdata, and RDFa structured data from the page. Includes a builder for creating new schema markup.</p>
+            <div class="util-row">
+              <button type="button" class="ghost-btn" id="browse-structured-data" title="View structured data from this page">View structured data</button>
+            </div>
         </div>
         <div class="browse-block">
           <h4 class="util-heading">Viewport and User-Agent</h4>
@@ -165,14 +172,14 @@
         </div>
       </section>
 
-      <!-- ───────── Tools pane ───────── -->
+      <!--  Tools pane  -->
       <section id="pane-tools" class="pane">
         <div class="tools">
           <button class="tool" data-tool="color-picker"><span class="ico">◉</span><span>Color picker</span></button>
-          <button class="tool" data-tool="ruler"><span class="ico">⟷</span><span>Ruler</span></button>
+          <button class="tool" data-tool="ruler"><span class="ico">↔</span><span>Ruler</span></button>
           <button class="tool" data-tool="whatfont"><span class="ico">A</span><span>Font inspector</span></button>
           <button class="tool" data-tool="screenshot"><span class="ico">▢</span><span>Full screenshot</span></button>
-          <button class="tool" data-tool="encoding"><span class="ico">編</span><span>Encoding…</span></button>
+          <button class="tool" data-tool="encoding"><span class="ico">字</span><span>Encoding…</span></button>
         </div>
 
         <div class="utilities" id="utilities">
@@ -206,7 +213,7 @@
           </details>
 
           <details class="util" data-util="jwt">
-            <summary><span class="ico">⟁</span><span>JWT decoder</span></summary>
+            <summary><span class="ico">⸁</span><span>JWT decoder</span></summary>
             <div class="util-body">
               <label class="util-field">
                 <span>Token</span>
@@ -251,7 +258,7 @@
               <div class="util-row">
                 <button type="button" class="ghost-btn" id="enc-encode">Encode →</button>
                 <button type="button" class="ghost-btn" id="enc-decode">← Decode</button>
-                <button type="button" class="ghost-btn" id="enc-swap" title="Move output back into input">↕ Swap</button>
+                <button type="button" class="ghost-btn" id="enc-swap" title="Move output back into input">↔ Swap</button>
                 <button type="button" class="ghost-btn" id="enc-copy">Copy</button>
               </div>
               <label class="util-field">
@@ -365,7 +372,7 @@
                 <button type="button" class="ghost-btn" data-fake="cc">Test CC</button>
                 <button type="button" class="ghost-btn" data-fake="lorem-w">Lorem w</button>
                 <button type="button" class="ghost-btn" data-fake="lorem-s">Lorem sentence</button>
-                <button type="button" class="ghost-btn" data-fake="lorem-p">Lorem ¶</button>
+                <button type="button" class="ghost-btn" data-fake="lorem-p">Lorem p</button>
               </div>
               <div class="util-row">
                 <label class="util-inline">
@@ -425,7 +432,7 @@
 
     <div id="status" class="status" hidden></div>
 
-    <!-- ───────── Dialogs ───────── -->
+    <!--  Dialogs  -->
     <dialog id="encoding-dialog">
       <form method="dialog">
         <h3>Override encoding</h3>

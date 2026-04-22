@@ -1,0 +1,59 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Structured Data · ComboBreaker</title>
+    <link rel="icon" href="../icons/icon32.png" />
+    <link rel="stylesheet" href="structured_data.css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <img src="../icons/icon32.png" alt="" width="22" height="22" />
+        <span>ComboBreaker · Structured Data / JSON-LD</span>
+      </div>
+    </header>
+    <p id="source-line" class="source muted"></p>
+    
+    <main id="sd-main">
+      <section id="jsonld-section">
+        <h2>JSON-LD Blocks <span id="jsonld-count"></span></h2>
+        <div id="jsonld-container"></div>
+      </section>
+
+      <section id="other-section">
+        <h2>Other Structured Data</h2>
+        <div id="microdata-summary"></div>
+        <div id="rdfa-summary"></div>
+      </section>
+
+      <section id="validator-section">
+        <h2>Validation Tools</h2>
+        <div id="validator-links"></div>
+      </section>
+
+      <section id="builder-section">
+        <h2>JSON-LD Builder</h2>
+        <div id="builder-form">
+          <label>
+            Type:
+            <select id="builder-type">
+              <option value="WebSite">WebSite</option>
+              <option value="Organization">Organization</option>
+              <option value="Article">Article</option>
+              <option value="Product">Product</option>
+              <option value="BreadcrumbList">BreadcrumbList</option>
+              <option value="FAQPage">FAQPage</option>
+            </select>
+          </label>
+          <div id="builder-fields"></div>
+          <button id="builder-generate">Generate JSON-LD</button>
+        </div>
+        <div id="builder-output"></div>
+      </section>
+
+      <p class="empty muted" id="sd-fallback" hidden>No structured data found on this page.</p>
+    </main>
+    <script src="structured_data.js"></script>
+  </body>
+</html>

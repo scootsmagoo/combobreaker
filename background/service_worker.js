@@ -84,6 +84,10 @@ async function handleMessage(msg, sender) {
       return await extractReaderForTab(msg.tabId);
     case "reader-open":
       return await openReaderView(msg.tabId);
+    case "structured-data-extract":
+      return await extractStructuredDataForTab(msg.tabId);
+    case "structured-data-open":
+      return await openStructuredDataView(msg.tabId);
     case "set-viewport-preset":
       return await setViewportPreset(msg.tabId, msg.preset, msg.siteKey);
     case "list-tab-sessions":
@@ -921,6 +925,7 @@ async function openHlsDownloader(url, title, referer) {
 // ---------- Tier 3: browsing (reader, viewport, sessions, no-cache) ----------
 
 const READER_SESSION_KEY = "combobreaker_reader";
+const STRUCTURED_DATA_SESSION_KEY = "combobreaker_structured_data";
 const TAB_SESSIONS_KEY = "cb_tab_sessions";
 const NO_CACHE_SESSION_BASE = 9_000_000;
 
@@ -1083,6 +1088,55 @@ async function openReaderView(tabIdOverride) {
 async function listTabSessions() {
   const d = await chrome.storage.local.get(TAB_SESSIONS_KEY);
   return { sessions: d[TAB_SESSIONS_KEY] || [] };
+}
+
+async function extractStructuredDataForTab(tabIdOverride) {
+  const tabId =
+    tabIdOverride ?? (await chrome.tabs.query({ active: true, currentWindow: true }))[0]?.id;
+  if (tabId == null || tabId < 0) throw new Error("no active tab");
+  const tab = await chrome.tabs.get(tabId);
+  if (!tab.url || !/^https?:/i.test(tab.url)) {
+    throw new Error("Structured data extraction requires an http(s) page");
+  }
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    world: "ISOLATED",
+    files: ["content/schema_inject.js"],
+  });
+  const [{ result: out }] = await chrome.scripting.executeScript({
+    target: { tabId },
+    world: "ISOLATED",
+    func: () => {
+      if (typeof globalThis === "undefined" || typeof globalThis.__cbExtractStructuredData !== "function") {
+        return {
+          ok: false,
+          error: "Schema extractor missing — globalThis.__cbExtractStructuredData is not a function",
+        };
+      }
+      return globalThis.__cbExtractStructuredData();
+    },
+  });
+  return out;
+}
+
+async function openStructuredDataView(tabIdOverride) {
+  const r = await extractStructuredDataForTab(tabIdOverride);
+  if (!r || !r.ok) return r;
+  const payload = {
+    pageUrl: r.pageUrl,
+    pageTitle: r.pageTitle,
+    jsonld: r.jsonld || [],
+    microdata: r.microdata || { itemscopeCount: 0, itemtypes: [] },
+    rdfa: r.rdfa || { elementCount: 0, typofs: [] },
+  };
+  try {
+    await chrome.storage.session.set({ [STRUCTURED_DATA_SESSION_KEY]: payload });
+  } catch (e) {
+    throw new Error("Structured data payload is too large to open in a tab");
+  }
+  const dest = chrome.runtime.getURL("viewer/structured_data.html");
+  await chrome.tabs.create({ url: dest, active: true });
+  return { ok: true, opened: true };
 }
 
 async function saveTabWindowSession(name) {
