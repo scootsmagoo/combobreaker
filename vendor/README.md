@@ -36,3 +36,27 @@ curl -sSL -o vendor/qrcode-generator.js https://cdn.jsdelivr.net/npm/qrcode-gene
 ```
 
 Then update the version number in this file.
+
+## Readability.js
+
+- **Source**: https://github.com/mozilla/readability
+- **Version**: 0.5.0 (npm `@mozilla/readability`, file `Readability.js`)
+- **License**: Apache-2.0 — see `Readability.LICENSE` and the header in `Readability.js`
+
+Used in the service worker to extract the main article from the current tab before opening **reader view** or **Copy as Markdown** (with Turndown). Injected with `scripting.executeScript` in the **isolated** world before a small `func` runs; not loaded on every page.
+
+## turndown.js
+
+- **Source**: https://github.com/mixmark-io/turndown
+- **Version**: 7.2.0 (UMD build `lib/turndown.browser.umd.js` saved as `turndown.js`)
+- **License**: MIT — see `turndown.LICENSE` and the upstream repository
+
+Paired with Readability to turn cleaned article HTML into Markdown. Exposes `window.TurndownService` in the isolated world.
+
+To upgrade (from a throwaway `npm i` run):
+
+```bash
+cp node_modules/turndown/lib/turndown.browser.umd.js vendor/turndown.js
+```
+
+Then update the version in this file.

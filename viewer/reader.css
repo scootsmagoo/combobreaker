@@ -1,0 +1,88 @@
+:root {
+  --bg: #1a1d26;
+  --text: #e7eaf3;
+  --muted: #8b95a8;
+  --link: #7ab3ff;
+  --line: #2a3040;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.55 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.source {
+  margin: 0;
+  padding: 10px 20px 0;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3rem;
+}
+
+#reader-main h1,
+#reader-main h2,
+#reader-main h3,
+#reader-main p,
+#reader-main li {
+  color: var(--text);
+}
+
+#reader-main a {
+  color: var(--link);
+}
+
+#reader-main img {
+  max-width: 100%;
+  height: auto;
+}
+
+#reader-main h1 {
+  font-size: 1.5rem;
+  line-height: 1.3;
+  margin: 0 0 0.5rem;
+}
+
+#reader-main article {
+  margin: 0;
+  padding: 0;
+}
+
+.empty {
+  margin: 0;
+  padding: 1rem 0;
+}

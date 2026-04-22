@@ -1,0 +1,9 @@
+Readability.js is from Mozilla’s Readability project (same license as the Firefox Reader View code).
+
+- **Source**: https://github.com/mozilla/readability
+- **NPM**: @mozilla/readability (vendored as `Readability.js` in this directory)
+- **License**: Apache License, Version 2.0
+
+The full license text: https://www.apache.org/licenses/LICENSE-2.0
+
+The upstream file header in `Readability.js` is the primary in-file copyright and license notice.

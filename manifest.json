@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ComboBreaker",
   "short_name": "ComboBreaker",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A privacy-respecting toolbox that consolidates the small extensions you actually need: per-site JS/CSS, dark mode, color picker, ruler, font inspector, JSON formatter, full-page screenshot, encoding override, and basic adblock. No telemetry. Ever.",
   "author": "scootsmagoo",
   "minimum_chrome_version": "116",
@@ -39,6 +39,7 @@
     "storage",
     "activeTab",
     "tabs",
+    "windows",
     "scripting",
     "contentSettings",
     "declarativeNetRequest",
@@ -86,7 +87,10 @@
         "vendor/darkreader.js",
         "viewer/hls_downloader.html",
         "viewer/hls_downloader.css",
-        "viewer/hls_downloader.js"
+        "viewer/hls_downloader.js",
+        "viewer/reader.html",
+        "viewer/reader.css",
+        "viewer/reader.js"
       ],
       "matches": ["<all_urls>"]
     }

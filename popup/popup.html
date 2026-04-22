@@ -23,6 +23,7 @@
       <button class="tab" data-tab="headers" role="tab">Headers</button>
       <button class="tab" data-tab="redirects" role="tab">Redirects</button>
       <button class="tab" data-tab="media" role="tab">Media</button>
+      <button class="tab" data-tab="browse" role="tab">Browse</button>
       <button class="tab" data-tab="tools" role="tab">Tools</button>
     </nav>
 
@@ -119,6 +120,48 @@
         </div>
         <div id="media-list" class="media-list">
           <div class="empty muted">Nothing detected yet. Play the video and re-open this popup.</div>
+        </div>
+      </section>
+
+      <!-- ───────── Browse (Tier 3) pane ───────── -->
+      <section id="pane-browse" class="pane">
+        <div class="browse-block">
+          <h4 class="util-heading">Reader and Markdown</h4>
+          <p class="hint browse-hint">Mozilla Readability and Turndown, loaded only when you use a button. Open a clean reader tab or copy the page as Markdown for notes or AI.</p>
+          <div class="util-row">
+            <button type="button" class="ghost-btn" id="browse-reader" title="Open article in a reader tab">Reader view</button>
+            <button type="button" class="ghost-btn" id="browse-md-copy" title="Copy the page as Markdown to the clipboard">Copy as Markdown</button>
+          </div>
+        </div>
+        <div class="browse-block">
+          <h4 class="util-heading">Viewport and User-Agent</h4>
+          <p class="hint browse-hint">Resizes this window and sets a request <code>User-Agent</code> for this site via header overrides. Reload the page to apply a new UA in full.</p>
+          <div class="util-row util-wrap" id="browse-vp-btns">
+            <button type="button" class="ghost-btn" data-vp="iphone" title="375×812, Mobile Safari">iPhone</button>
+            <button type="button" class="ghost-btn" data-vp="ipad" title="768×1024, iPad Safari">iPad</button>
+            <button type="button" class="ghost-btn" data-vp="laptop" title="1280×720, default UA">1280</button>
+            <button type="button" class="ghost-btn" data-vp="desktop" title="1920×1080, default UA">1920</button>
+            <button type="button" class="ghost-btn" data-vp="reset" title="Remove UA override; does not restore window size">Reset UA</button>
+          </div>
+        </div>
+        <div class="browse-block">
+          <h4 class="util-heading">Tab session</h4>
+          <p class="hint browse-hint">Save or restore a snapshot of the tabs in this window (stored locally, not synced).</p>
+          <div class="browse-session-row">
+            <input type="text" class="browse-input" id="browse-session-name" placeholder="Label (optional)" />
+            <button type="button" class="ghost-btn" id="browse-session-save">Save this window</button>
+            <button type="button" class="ghost-btn" id="browse-session-refresh" title="Reload the list">↻</button>
+          </div>
+          <ul id="browse-sessions" class="browse-sessions" aria-label="Saved sessions"></ul>
+        </div>
+        <div class="browse-block">
+          <h4 class="util-heading">Duplicate tabs and cache</h4>
+          <p class="hint browse-hint">Duplicate URLs across all windows: close all but one tab per URL. With this popup open, the <strong>current tab’s</strong> requests are asked to skip cache (session rule).</p>
+          <div class="util-row">
+            <button type="button" class="ghost-btn" id="browse-dup-scan">Find duplicates</button>
+            <button type="button" class="ghost-btn" id="browse-dup-close" title="Close every duplicate, keeping the active tab when there is one">Close extras</button>
+          </div>
+          <ul id="browse-dup-list" class="browse-dup-list" aria-label="Duplicate URLs" hidden></ul>
         </div>
       </section>
 
