@@ -44,6 +44,7 @@ async function init() {
   bindCookiesPane();
   bindHeadersPane();
   bindRedirectsPane();
+  bindMediaPane();
   bindToolsPane();
   bindDialogs();
 }
@@ -67,6 +68,7 @@ function switchTab(name) {
   if (name === "cookies") loadCookies();
   if (name === "redirects") loadRedirects();
   if (name === "headers") loadHeaders();
+  if (name === "media") loadMedia();
 }
 
 // ─────────────────── Site pane ───────────────────
@@ -659,6 +661,217 @@ async function copyRedirects() {
   } catch (e) {
     status(`Copy failed: ${e.message}`, "err");
   }
+}
+
+// ─────────────────── Media pane ───────────────────
+
+const YT_HOSTS = new Set([
+  "youtube.com",
+  "m.youtube.com",
+  "music.youtube.com",
+  "youtube-nocookie.com",
+  "youtu.be",
+]);
+
+function isYouTubeTab() {
+  if (!STATE.tab || !STATE.tab.url) return false;
+  try {
+    let host = new URL(STATE.tab.url).hostname.toLowerCase();
+    if (host.startsWith("www.")) host = host.slice(4);
+    return YT_HOSTS.has(host);
+  } catch {
+    return false;
+  }
+}
+
+function bindMediaPane() {
+  $("media-refresh").addEventListener("click", async () => {
+    if (!STATE.tab) return;
+    try {
+      await chrome.tabs.sendMessage(STATE.tab.id, { type: "cb-media-rescan" });
+    } catch {
+      // Content script may not be present (chrome:// etc.) — fine.
+    }
+    setTimeout(() => loadMedia(true), 300);
+  });
+  $("media-clear").addEventListener("click", async () => {
+    if (!STATE.tab) return;
+    try {
+      await sendMessage({ type: "media-clear", tabId: STATE.tab.id });
+      status("Media list cleared", "ok");
+      loadMedia(true);
+    } catch (e) {
+      status(`Clear failed: ${e.message}`, "err");
+    }
+  });
+  $("media-ytdlp").addEventListener("click", copyYtDlp);
+}
+
+async function loadMedia(_force = false) {
+  if (!STATE.tab) return;
+  $("media-yt-banner").hidden = !isYouTubeTab();
+  const list = $("media-list");
+  try {
+    const items = await sendMessage({ type: "media-list", tabId: STATE.tab.id });
+    renderMedia(items);
+  } catch (e) {
+    list.innerHTML = `<div class="empty muted">Error: ${escapeHtml(String(e.message || e))}</div>`;
+  }
+}
+
+function renderMedia(items) {
+  const list = $("media-list");
+  $("media-count").textContent = items.length
+    ? `${items.length} item${items.length === 1 ? "" : "s"}`
+    : "—";
+  if (!items.length) {
+    list.innerHTML = `<div class="empty muted">Nothing detected yet. Play the video and re-open this popup.</div>`;
+    return;
+  }
+  list.innerHTML = "";
+  const sorted = [...items].sort(mediaSortKey);
+  for (const it of sorted) {
+    list.appendChild(renderMediaItem(it));
+  }
+}
+
+function mediaSortKey(a, b) {
+  const rank = (k) => {
+    if (k === "mp4" || k === "webm" || k === "mov" || k === "mkv") return 0;
+    if (k === "hls") return 1;
+    if (k === "dash") return 2;
+    return 3;
+  };
+  const ra = rank(a.kind);
+  const rb = rank(b.kind);
+  if (ra !== rb) return ra - rb;
+  return (b.time || 0) - (a.time || 0);
+}
+
+function renderMediaItem(it) {
+  const row = document.createElement("div");
+  row.className = "media-item";
+
+  const kind = document.createElement("span");
+  kind.className = `kind ${it.kind || ""}`;
+  kind.textContent = (it.kind || "?").toUpperCase();
+  row.appendChild(kind);
+
+  const info = document.createElement("div");
+  info.className = "info";
+  const url = document.createElement("div");
+  url.className = "url";
+  url.textContent = shortUrl(it.url);
+  url.title = `${it.url}\n(click to copy)`;
+  url.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(it.url);
+      status("URL copied", "ok");
+    } catch {}
+  });
+  info.appendChild(url);
+
+  const meta = document.createElement("div");
+  meta.className = "meta";
+  if (it.width && it.height) meta.appendChild(badge(`${it.width}×${it.height}`));
+  if (it.duration) meta.appendChild(badge(formatDurationShort(it.duration)));
+  if (it.mime) meta.appendChild(badge(it.mime.split(";")[0]));
+  meta.appendChild(badge(it.source === "dom" ? "from DOM" : "from network"));
+  info.appendChild(meta);
+  row.appendChild(info);
+
+  const actions = document.createElement("div");
+  actions.className = "actions";
+
+  if (it.kind === "hls") {
+    const dl = document.createElement("button");
+    dl.className = "media-btn primary";
+    dl.textContent = "Open ↗";
+    dl.title = "Open the HLS downloader in a new tab";
+    dl.addEventListener("click", () => openHlsDownloader(it));
+    actions.appendChild(dl);
+  } else if (it.kind === "dash") {
+    const note = document.createElement("button");
+    note.className = "media-btn";
+    note.textContent = "DASH";
+    note.disabled = true;
+    note.title = "DASH (.mpd) downloads aren't implemented yet — use yt-dlp.";
+    actions.appendChild(note);
+  } else {
+    const dl = document.createElement("button");
+    dl.className = "media-btn primary";
+    dl.textContent = "Download";
+    dl.addEventListener("click", () => downloadDirect(it));
+    actions.appendChild(dl);
+  }
+
+  const open = document.createElement("button");
+  open.className = "media-btn";
+  open.textContent = "↗";
+  open.title = "Open URL in a new tab";
+  open.addEventListener("click", () => chrome.tabs.create({ url: it.url, active: false }));
+  actions.appendChild(open);
+
+  row.appendChild(actions);
+  return row;
+}
+
+async function downloadDirect(it) {
+  try {
+    await sendMessage({ type: "media-download", url: it.url });
+    status("Download started", "ok");
+  } catch (e) {
+    status(`Download failed: ${e.message}`, "err");
+  }
+}
+
+async function openHlsDownloader(it) {
+  try {
+    await sendMessage({
+      type: "open-hls-downloader",
+      url: it.url,
+      title: it.title || (STATE.tab && STATE.tab.title) || "",
+      referer: STATE.tab && STATE.tab.url ? STATE.tab.url : "",
+    });
+    window.close();
+  } catch (e) {
+    status(`Couldn't open downloader: ${e.message}`, "err");
+  }
+}
+
+async function copyYtDlp() {
+  if (!STATE.tab || !STATE.tab.url) {
+    status("No tab URL", "err");
+    return;
+  }
+  const cmd = `yt-dlp "${STATE.tab.url}"`;
+  try {
+    await navigator.clipboard.writeText(cmd);
+    status("yt-dlp command copied", "ok");
+  } catch (e) {
+    status(`Copy failed: ${e.message}`, "err");
+  }
+}
+
+function shortUrl(u) {
+  try {
+    const x = new URL(u);
+    let path = x.pathname;
+    if (path.length > 60) path = "…" + path.slice(-58);
+    return `${x.host}${path}`;
+  } catch {
+    return u;
+  }
+}
+
+function formatDurationShort(s) {
+  if (!s || !isFinite(s)) return "";
+  const total = Math.round(s);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = total % 60;
+  if (h) return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
 // ─────────────────── Tools pane ───────────────────

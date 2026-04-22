@@ -21,6 +21,7 @@ Inspired by the spirit of [@levelsio's combo-extension thread](https://x.com/lev
 | **Font inspector** | Hover any element to see its font stack, size, weight, line-height, color. |
 | **JSON formatter** | Auto-pretty-prints `application/json` responses. Tree / Formatted / Raw view modes, depth-level expand buttons (1–5, All), hover for JSON path + click to pin & copy, per-node "expand all descendants", auto/dark/light theme, and `window.data` exposed in the page console. |
 | **Full-page screenshot** | Scroll-and-stitch the entire page to a PNG download. |
+| **Video downloader** | A "Media" tab in the popup lists every `<video>`/`<audio>` element and every media response the page fetches (mp4, webm, mov, mp3, m4a, HLS `.m3u8`). One click downloads direct files via `chrome.downloads`. HLS streams open a dedicated downloader page that pulls every segment and saves a `.ts` file (run `ffmpeg -i input.ts -c copy output.mp4` if you want MP4). YouTube and other DRM/signed-stream sites get a "Copy yt-dlp command" button instead — see caveats below. |
 | **Encoding override** | Manually set character encoding for legacy/garbled pages. |
 | **Kagi search** | Sets Kagi as your default search provider on install. |
 | **Basic adblock** | Static `declarativeNetRequest` ruleset blocking common ad/tracker domains. |
@@ -82,7 +83,9 @@ options/                   Full-page options (CSS/JS editors, global prefs,
 content/site_injector.js   Runs at document_start on every page; loads per-site CSS/JS
                            and the dark-mode anti-flash preamble
 content/json_formatter.js  Pretty-printer + tree viewer for JSON responses
+content/media_finder.js    DOM scanner for the video downloader
 tools/                     On-demand tools (color picker, ruler, whatfont)
+viewer/                    Extension pages (HLS downloader)
 vendor/                    Vendored third-party code (Dark Reader UMD bundle)
 rules/                     declarativeNetRequest rulesets
 lib/                       Shared storage + URL helpers
@@ -90,6 +93,27 @@ icons/                     PNG icons
 ```
 
 All settings live in `chrome.storage.sync` so they follow your Chrome profile.
+
+### Video downloader
+
+The Media tab in the popup shows everything ComboBreaker has noticed on the current tab — the popup combines two sources, deduped by URL:
+
+- **DOM scan** (`content/media_finder.js`): walks `<video>`, `<audio>`, and `<source>` elements and watches for new ones via a `MutationObserver`.
+- **Network sniff** (service worker): `chrome.webRequest.onResponseStarted` flags any response whose `Content-Type` is `video/*`, `audio/*`, `application/vnd.apple.mpegurl` (HLS), or `application/dash+xml` (DASH), or whose URL ends in a known media extension. Per-tab list lives in `chrome.storage.session` and is reset on top-level navigation.
+
+What the buttons do:
+
+- **Direct files** (`mp4`, `webm`, `mov`, `mkv`, `mp3`, `m4a`, etc.) — one click downloads via `chrome.downloads.download` into a `combobreaker/` subfolder.
+- **HLS** (`.m3u8`) — opens `viewer/hls_downloader.html` in a new tab. That page parses the manifest, lets you pick a variant if it's a master playlist, then fetches every segment and writes the concatenated MPEG-TS bytes to disk as a single `.ts` file. Works in VLC/mpv as-is. To convert to MP4 without re-encoding: `ffmpeg -i input.ts -c copy output.mp4`.
+- **DASH** (`.mpd`) — detection only; no built-in downloader (use yt-dlp).
+- **Copy yt-dlp** — copies `yt-dlp "<current tab URL>"` to your clipboard. Use this for YouTube, Vimeo, and anything else that ships signed/DRM streams.
+
+#### Caveats
+
+- **No DRM.** Encrypted HLS (`#EXT-X-KEY` with anything other than `METHOD=NONE`) is detected and refused. Widevine / FairPlay / EME streams are out of scope.
+- **No fragmented-MP4 muxing.** HLS streams whose segments are `.m4s` (with an init segment via `#EXT-X-MAP`) are detected and refused — concatenation alone doesn't produce a valid file. A real muxer (ffmpeg.wasm) would be needed; not currently vendored.
+- **Live streams** capture only the current sliding window of segments visible in the playlist at fetch time.
+- **YouTube** specifically does not work via the direct-download path. YouTube serves signed adaptive DASH segments that change cipher routinely; that's a yt-dlp problem, not a browser-extension problem. The popup detects YouTube hosts and shows a banner pointing at the **Copy yt-dlp** button.
 
 ### Dark-mode model
 

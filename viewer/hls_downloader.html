@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>ComboBreaker · HLS downloader</title>
+    <link rel="icon" href="../icons/icon32.png" />
+    <link rel="stylesheet" href="hls_downloader.css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <img src="../icons/icon32.png" alt="" width="22" height="22" />
+        <span>ComboBreaker · HLS downloader</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="src-panel">
+        <div class="row">
+          <span class="lbl">Source</span>
+          <span id="src-url" class="mono">—</span>
+        </div>
+        <div class="row">
+          <span class="lbl">Page</span>
+          <span id="src-title">—</span>
+        </div>
+      </section>
+
+      <section id="variants-panel" class="panel" hidden>
+        <h2>Pick a quality</h2>
+        <div id="variants-list" class="variants"></div>
+      </section>
+
+      <section id="info-panel" class="panel" hidden>
+        <h2>Stream info</h2>
+        <div class="info-grid">
+          <div class="info"><span class="lbl">Segments</span><span id="info-segments">—</span></div>
+          <div class="info"><span class="lbl">Duration</span><span id="info-duration">—</span></div>
+          <div class="info"><span class="lbl">Container</span><span id="info-container">—</span></div>
+          <div class="info"><span class="lbl">Encryption</span><span id="info-encryption">—</span></div>
+          <div class="info"><span class="lbl">Live</span><span id="info-live">—</span></div>
+        </div>
+        <div class="actions">
+          <button id="start-btn" class="primary">Download</button>
+          <label class="filename-row">
+            <span>Filename</span>
+            <input type="text" id="filename" />
+          </label>
+        </div>
+      </section>
+
+      <section id="progress-panel" class="panel" hidden>
+        <h2>Downloading</h2>
+        <div class="progress-bar"><div id="progress-fill"></div></div>
+        <div class="progress-meta">
+          <span id="progress-text">0 / 0</span>
+          <span id="progress-speed" class="muted">—</span>
+        </div>
+        <div class="actions">
+          <button id="cancel-btn" class="ghost">Cancel</button>
+        </div>
+        <div id="log" class="log"></div>
+      </section>
+
+      <section id="error-panel" class="panel error" hidden>
+        <h2>Error</h2>
+        <pre id="error-text"></pre>
+        <div class="actions">
+          <button id="retry-btn" class="ghost">Try again</button>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p class="muted">
+        ComboBreaker downloads non-DRM HLS streams as raw MPEG-TS
+        (<code>.ts</code>) by concatenating segments. The result plays in
+        VLC, mpv, etc. To convert to MP4 without re-encoding, run
+        <code>ffmpeg -i input.ts -c copy output.mp4</code>.
+      </p>
+    </footer>
+
+    <script src="hls_downloader.js" type="module"></script>
+  </body>
+</html>

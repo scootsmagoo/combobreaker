@@ -70,6 +70,16 @@ async function handleMessage(msg, sender) {
       return await getResponseHeaders(msg.tabId);
     case "apply-site-headers":
       return await applySiteHeaderRules(msg.siteKey);
+    case "media-found":
+      return await pushMediaItem(sender?.tab?.id, msg.item);
+    case "media-list":
+      return await getMediaList(msg.tabId);
+    case "media-clear":
+      return await clearMediaList(msg.tabId);
+    case "media-download":
+      return await downloadMedia(msg.url, msg.filename);
+    case "open-hls-downloader":
+      return await openHlsDownloader(msg.url, msg.title, msg.referer);
     default:
       throw new Error(`unknown message type: ${msg?.type}`);
   }
@@ -715,6 +725,179 @@ async function reapplyAllHeaderRules() {
       await syncSiteHeaderRules(siteKey, settings);
     }
   }
+}
+
+// ---------- Media (video/audio) sniffer ----------
+//
+// Tracks media URLs seen on each tab so the popup's Media tab can offer
+// downloads. Sources:
+//   1. content/media_finder.js scans <video>/<source>/<audio> and posts
+//      `media-found` messages.
+//   2. webRequest.onResponseStarted catches anything the network ships
+//      with a media Content-Type or a known media extension.
+// Both feed the same per-tab list, deduped by URL. The list lives in
+// chrome.storage.session so it survives SW sleeps but resets per browser
+// session and per tab navigation.
+
+const MEDIA_KEY = (tabId) => `media:${tabId}`;
+const MAX_MEDIA = 50;
+
+const MEDIA_URL_RE = /\.(m3u8|mpd|mp4|m4v|webm|mov|mkv|ogv|ogg|mp3|m4a|wav|flv|ts)(?:$|\?|#)/i;
+const MEDIA_MIME_RE = /^(video|audio)\//i;
+const HLS_MIME_RE = /^application\/(vnd\.apple\.mpegurl|x-mpegurl)/i;
+const DASH_MIME_RE = /^application\/dash\+xml/i;
+
+function classifyByUrl(url) {
+  const m = MEDIA_URL_RE.exec(url || "");
+  if (!m) return null;
+  const ext = m[1].toLowerCase();
+  if (ext === "m3u8") return "hls";
+  if (ext === "mpd") return "dash";
+  if (ext === "m4v") return "mp4";
+  if (ext === "ogv") return "ogg";
+  return ext;
+}
+
+function classifyByMime(mime) {
+  if (!mime) return null;
+  if (HLS_MIME_RE.test(mime)) return "hls";
+  if (DASH_MIME_RE.test(mime)) return "dash";
+  if (MEDIA_MIME_RE.test(mime)) {
+    const sub = mime.split("/")[1].split(";")[0].trim().toLowerCase();
+    if (sub === "mp4") return "mp4";
+    if (sub === "webm") return "webm";
+    if (sub === "ogg") return "ogg";
+    if (sub === "mpeg") return mime.startsWith("audio") ? "mp3" : "mpeg";
+    return sub || (mime.startsWith("audio") ? "audio" : "video");
+  }
+  return null;
+}
+
+async function pushMediaItem(tabId, item) {
+  if (tabId == null || tabId < 0 || !item || !item.url) return null;
+  if (typeof item.url !== "string") return null;
+  if (item.url.startsWith("blob:") || item.url.startsWith("data:")) return null;
+
+  const key = MEDIA_KEY(tabId);
+  const data = await chrome.storage.session.get(key);
+  const list = data[key] || [];
+  if (list.some((it) => it.url === item.url)) return { added: false };
+
+  const normalized = {
+    url: item.url,
+    kind: item.kind || classifyByUrl(item.url) || classifyByMime(item.mime) || "video",
+    mime: item.mime || "",
+    width: item.width || null,
+    height: item.height || null,
+    duration: item.duration || null,
+    title: item.title || "",
+    source: item.source || "net",
+    time: Date.now(),
+  };
+  list.push(normalized);
+  if (list.length > MAX_MEDIA) list.splice(0, list.length - MAX_MEDIA);
+  await chrome.storage.session.set({ [key]: list });
+  return { added: true, count: list.length };
+}
+
+async function getMediaList(tabId) {
+  if (tabId == null || tabId < 0) return [];
+  const key = MEDIA_KEY(tabId);
+  const data = await chrome.storage.session.get(key);
+  return data[key] || [];
+}
+
+async function clearMediaList(tabId) {
+  if (tabId == null || tabId < 0) return;
+  await chrome.storage.session.remove(MEDIA_KEY(tabId));
+  return { ok: true };
+}
+
+chrome.webRequest.onResponseStarted.addListener(
+  (details) => {
+    if (details.tabId < 0) return;
+    if (details.type === "main_frame" || details.type === "sub_frame") return;
+    const headers = details.responseHeaders || [];
+    const ct = headers.find((h) => h.name.toLowerCase() === "content-type");
+    const mime = ct ? String(ct.value || "").trim() : "";
+    const kindByMime = classifyByMime(mime);
+    const kindByUrl = classifyByUrl(details.url);
+    const kind = kindByMime || kindByUrl;
+    if (!kind) return;
+    // .ts is the segment format for HLS. Listing each segment would spam
+    // the UI; we already track the parent .m3u8.
+    if (kindByUrl === "ts") return;
+    pushMediaItem(details.tabId, {
+      url: details.url,
+      kind,
+      mime,
+      source: "net",
+    });
+  },
+  { urls: ["<all_urls>"] },
+  ["responseHeaders"]
+);
+
+// New top-level navigation = clean slate for the Media tab.
+chrome.webRequest.onBeforeRequest.addListener(
+  (details) => {
+    if (details.type !== "main_frame" || details.tabId < 0) return;
+    chrome.storage.session.remove(MEDIA_KEY(details.tabId)).catch(() => {});
+  },
+  { urls: ["<all_urls>"], types: ["main_frame"] }
+);
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  chrome.storage.session.remove(MEDIA_KEY(tabId)).catch(() => {});
+});
+
+// ---------- Direct media download (mp4/webm/etc.) ----------
+
+function safeFilename(s) {
+  return String(s || "")
+    .replace(/[\\/:*?"<>|]+/g, "_")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+}
+
+function filenameFromUrl(url, fallbackTitle) {
+  try {
+    const u = new URL(url);
+    const tail = u.pathname.split("/").filter(Boolean).pop() || "";
+    if (tail && /\.[a-z0-9]{2,5}$/i.test(tail)) return safeFilename(tail);
+    const ext = (classifyByUrl(url) || "bin").toLowerCase();
+    const stem = safeFilename(fallbackTitle || u.hostname || "video");
+    return `${stem}.${ext === "mpeg" ? "mp3" : ext}`;
+  } catch {
+    return safeFilename(fallbackTitle || "download.bin");
+  }
+}
+
+async function downloadMedia(url, filename) {
+  if (!url || typeof url !== "string") throw new Error("url required");
+  const fname = filename || filenameFromUrl(url);
+  const id = await chrome.downloads.download({
+    url,
+    filename: `combobreaker/${fname}`,
+    saveAs: false,
+    conflictAction: "uniquify",
+  });
+  return { id, filename: fname };
+}
+
+// ---------- HLS downloader page launcher ----------
+
+async function openHlsDownloader(url, title, referer) {
+  if (!url) throw new Error("hls url required");
+  const params = new URLSearchParams({ url });
+  if (title) params.set("title", title);
+  if (referer) params.set("referer", referer);
+  const dest = chrome.runtime.getURL(
+    `viewer/hls_downloader.html?${params.toString()}`
+  );
+  const tab = await chrome.tabs.create({ url: dest });
+  return { tabId: tab.id };
 }
 
 // ---------- Keyboard commands ----------

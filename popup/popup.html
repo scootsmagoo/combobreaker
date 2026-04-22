@@ -22,6 +22,7 @@
       <button class="tab" data-tab="cookies" role="tab">Cookies</button>
       <button class="tab" data-tab="headers" role="tab">Headers</button>
       <button class="tab" data-tab="redirects" role="tab">Redirects</button>
+      <button class="tab" data-tab="media" role="tab">Media</button>
       <button class="tab" data-tab="tools" role="tab">Tools</button>
     </nav>
 
@@ -100,6 +101,24 @@
         </div>
         <div id="redirects-list" class="redirects-list">
           <div class="empty muted">Loading…</div>
+        </div>
+      </section>
+
+      <!-- ───────── Media pane ───────── -->
+      <section id="pane-media" class="pane">
+        <div class="cookies-toolbar">
+          <span id="media-count" class="muted">—</span>
+          <button id="media-refresh" class="ghost-btn" title="Re-scan the page DOM">↻</button>
+          <button id="media-ytdlp" class="ghost-btn" title="Copy a yt-dlp command for the current page URL">Copy yt-dlp</button>
+          <button id="media-clear" class="danger-btn" title="Clear detected media for this tab">Clear</button>
+        </div>
+        <div id="media-yt-banner" class="media-banner" hidden>
+          <strong>YouTube detected.</strong> Direct downloads won't work
+          (signed adaptive streams). Use <em>Copy yt-dlp</em> above and run
+          <code>yt-dlp &lt;paste&gt;</code> in a terminal.
+        </div>
+        <div id="media-list" class="media-list">
+          <div class="empty muted">Nothing detected yet. Play the video and re-open this popup.</div>
         </div>
       </section>
 
