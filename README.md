@@ -164,8 +164,10 @@ Setup is designed for people who never open a terminal on purpose:
 After that the badge and the Media tab download through it with progress;
 it also handles DASH, fMP4 HLS with separate audio, and AES-128 HLS. When a
 download fails in a way that smells like YouTube changed something, the host
-runs yt-dlp's self-update and retries once; there is also an **Update yt-dlp**
-button in options. If YouTube answers "sign in to confirm you're not a bot",
+runs yt-dlp's self-update and retries once; it also checks for an update once
+a day in the background, and there is an **Update yt-dlp** button in options.
+`node scripts/smoke_helper.js [--download]` answers "is the Helper broken?"
+from a terminal without a browser. If YouTube answers "sign in to confirm you're not a bot",
 turn on **Use my browser's cookies** in options: the extension exports the
 site's cookies (via `chrome.cookies`, already decrypted, no keychain prompt)
 into a per-download temp file for yt-dlp. Details, layout and the wire

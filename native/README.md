@@ -102,6 +102,16 @@ Tool lookup order: explicit path from options → the Helper bundle
 Output filename template: `%(title).120B [%(id)s].%(ext)s` under
 `outputDir` (default `~/Downloads/combobreaker`).
 
+## Keeping it working
+
+- After answering a ping, the host runs `yt-dlp -U` in the background at most
+  once a day (marker file `.last-update-check` in the helper folder), only for
+  the bundled copy and never while a download is running.
+- A download whose error looks like site breakage triggers `-U` and one retry.
+- `node scripts/smoke_helper.js` pings the installed helper and prints the
+  versions it sees; `--download` also fetches a 19 s public clip into a temp
+  folder. Exit code 0 = fine.
+
 ## Troubleshooting
 
 - **"Helper not installed"**: the browser found no manifest. Run the setup

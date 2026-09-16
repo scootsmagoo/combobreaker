@@ -39,7 +39,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
-const HOST_VERSION = "1.1.0";
+const HOST_VERSION = "1.2.0";
 const IS_WIN = process.platform === "win32";
 const IS_MAC = process.platform === "darwin";
 
@@ -298,6 +298,10 @@ function handlePing(msg) {
   if (msg.force) toolCache.clear();
   const ytdlp = findTool("yt-dlp", msg.ytdlpPath);
   const ffmpeg = findTool("ffmpeg", msg.ffmpegPath);
+  // Before the pong: a blocking pipe write hands the CPU to the reader, and a
+  // client that exits on the pong (the smoke test) would otherwise beat the
+  // marker write below.
+  maybeAutoUpdate(ytdlp);
   send({
     type: "pong",
     version: HOST_VERSION,
@@ -311,6 +315,32 @@ function handlePing(msg) {
 }
 
 // ---------- yt-dlp self-update ----------
+
+// Once a day, after answering a ping, run `yt-dlp -U` in the background so
+// YouTube breakage is usually fixed before anyone hits it. Only for the
+// bundled copy (a Homebrew/pip yt-dlp is the user's to update), never while
+// a download is running (Windows can't swap a zip that's open).
+const AUTO_UPDATE_EVERY_MS = 24 * 60 * 60 * 1000;
+let autoUpdateStarted = false;
+
+function maybeAutoUpdate(ytdlp) {
+  if (autoUpdateStarted || !ytdlp || !ytdlp.helper) return;
+  if (jobs.size) return;
+  const dir = helperDir();
+  if (!dir) return;
+  const marker = path.join(dir, ".last-update-check");
+  try {
+    const st = fs.statSync(marker);
+    if (Date.now() - st.mtimeMs < AUTO_UPDATE_EVERY_MS) return;
+  } catch {}
+  autoUpdateStarted = true;
+  try {
+    fs.writeFileSync(marker, new Date().toISOString());
+  } catch {}
+  runUpdate(ytdlp).then((r) => {
+    send({ type: "updated", auto: true, ok: r.ok, updated: r.updated, version: r.version, output: r.output });
+  });
+}
 
 // Errors that a newer yt-dlp usually fixes (YouTube changed its player or
 // signing scheme). Anything else (network, private video, disk full) is not
