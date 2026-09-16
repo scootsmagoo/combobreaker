@@ -8,6 +8,15 @@ import {
   effectiveDarkModeFor,
 } from "../lib/storage.js";
 import { siteKeyFromUrl, originPatternForSite } from "../lib/site.js";
+import {
+  ytdlpStatus,
+  ytdlpDownload,
+  ytdlpCancel,
+  ytdlpReveal,
+  ytdlpJobs,
+  ytdlpClearJobs,
+  ytdlpCommandFor,
+} from "./ytdlp_bridge.js";
 
 chrome.runtime.onInstalled.addListener(async () => {
   await ensureSchema();
@@ -78,8 +87,38 @@ async function handleMessage(msg, sender) {
       return await clearMediaList(msg.tabId);
     case "media-download":
       return await downloadMedia(msg.url, msg.filename);
+    case "media-list-mine":
+      return await getMediaList(sender?.tab?.id);
     case "open-hls-downloader":
       return await openHlsDownloader(msg.url, msg.title, msg.referer);
+    case "overlay-download":
+      return await overlayDownload(msg, sender);
+    case "ytdlp-status":
+      return await ytdlpStatus(!!msg.force);
+    case "ytdlp-download":
+      return await ytdlpDownload({
+        url: msg.url,
+        quality: msg.quality,
+        title: msg.title,
+        tabId: msg.tabId != null ? msg.tabId : sender?.tab?.id,
+        itemId: msg.itemId,
+        page: msg.page,
+        referer: msg.referer,
+        thumb: msg.thumb,
+        site: msg.site,
+      });
+    case "ytdlp-cancel":
+      return await ytdlpCancel(msg.jobId);
+    case "ytdlp-reveal":
+      return await ytdlpReveal(msg.path);
+    case "ytdlp-jobs":
+      return await ytdlpJobs();
+    case "ytdlp-clear-jobs":
+      return await ytdlpClearJobs();
+    case "open-options":
+      return await openOptionsSection(msg.section);
+    case "overlay-list-all":
+      return await overlayListAllFrames(msg.tabId);
     case "reader-extract":
       return await extractReaderForTab(msg.tabId);
     case "reader-open":
@@ -906,6 +945,114 @@ async function downloadMedia(url, filename) {
     conflictAction: "uniquify",
   });
   return { id, filename: fname };
+}
+
+// ---------- On-page badge downloads (content/media_overlay.js) ----------
+//
+// The overlay hands us an item (what the user hovered) plus the source they
+// picked. Direct files go straight to chrome.downloads. Manifests and
+// yt-dlp-only sources go to the native bridge when it's installed; otherwise
+// HLS falls back to the in-extension downloader page and everything else
+// falls back to "copy a yt-dlp command".
+
+const DIRECT_KINDS = new Set(["mp4", "webm", "mov", "mkv", "ogg", "mp3", "m4a", "wav", "video", "audio", "mpeg"]);
+
+const KIND_EXT = { video: "mp4", audio: "m4a", mpeg: "mp3", ytdlp: "mp4" };
+
+function filenameForItem(item, source) {
+  const raw = classifyByUrl(source.url) || source.kind || "mp4";
+  const ext = KIND_EXT[raw] || raw;
+  let stem = safeFilename(item && item.title ? item.title : "");
+  if (!stem || stem.length < 3) {
+    try {
+      stem = safeFilename(new URL(item && item.page ? item.page : source.url).hostname);
+    } catch {
+      stem = "video";
+    }
+  }
+  stem = stem.slice(0, 80);
+  let tag = "";
+  const m = item && item.page ? /\/status\/(\d+)/.exec(item.page) : null;
+  if (m) tag = ` [${m[1]}]`;
+  else if (source.res) tag = ` [${source.res}]`;
+  return `${stem}${tag}.${ext}`;
+}
+
+async function overlayDownload(msg, sender) {
+  const item = msg.item || {};
+  const source = msg.source || {};
+  // No explicit preset (badge quick-click) -> the default from options.
+  const quality = msg.quality || (await getGlobal()).ytdlp.quality || "best";
+  const tabId = msg.tabId != null ? msg.tabId : sender?.tab?.id;
+  if (!source.url || !/^https?:/i.test(source.url)) throw new Error("bad source url");
+
+  if (DIRECT_KINDS.has(source.kind)) {
+    const r = await downloadMedia(source.url, filenameForItem(item, source));
+    return { mode: "direct", filename: r.filename };
+  }
+
+  const status = await ytdlpStatus(false);
+  if (status.available) {
+    const job = await ytdlpDownload({
+      url: source.url,
+      quality,
+      title: item.title || "",
+      tabId,
+      itemId: item.id,
+      page: item.page || msg.referer || "",
+      referer: msg.referer || item.page || "",
+      thumb: item.thumb || "",
+      site: item.site || "",
+    });
+    return { mode: "ytdlp", jobId: job.id };
+  }
+
+  if (source.kind === "hls") {
+    await openHlsDownloader(source.url, item.title || "", msg.referer || item.page || "");
+    return { mode: "hls-page" };
+  }
+
+  return {
+    mode: "copy",
+    cmd: ytdlpCommandFor(source.url, quality),
+    reason: source.kind === "dash" ? "DASH needs yt-dlp." : status.error || "yt-dlp bridge not installed.",
+  };
+}
+
+// Collect badge items from every frame of a tab. chrome.scripting runs in the
+// same isolated world as the content script, so the function can call the
+// hook media_overlay.js leaves on window.
+async function overlayListAllFrames(tabId) {
+  if (tabId == null || tabId < 0) return [];
+  let results = [];
+  try {
+    results = await chrome.scripting.executeScript({
+      target: { tabId, allFrames: true },
+      func: () => (typeof window.__cb_overlay_list === "function" ? window.__cb_overlay_list() : null),
+    });
+  } catch (e) {
+    throw new Error(`no access to this page (${e.message})`);
+  }
+  const out = [];
+  const seen = new Set();
+  for (const r of results) {
+    if (!r || !Array.isArray(r.result)) continue;
+    for (const it of r.result) {
+      const key = `${r.frameId}:${it.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ ...it, frameId: r.frameId });
+    }
+  }
+  // Top frame first, then document order within each frame.
+  out.sort((a, b) => (a.frameId === 0 ? -1 : b.frameId === 0 ? 1 : a.frameId - b.frameId));
+  return out;
+}
+
+async function openOptionsSection(section) {
+  const url = chrome.runtime.getURL(`options/options.html${section ? "#" + section : ""}`);
+  const tab = await chrome.tabs.create({ url });
+  return { tabId: tab.id };
 }
 
 // ---------- HLS downloader page launcher ----------

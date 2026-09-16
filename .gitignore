@@ -25,3 +25,7 @@ npm-debug.log*
 NOTES.md
 TODO.local.md
 .scratch/
+
+# Smoke test deps/output
+node_modules/
+scripts/.smoke-out/

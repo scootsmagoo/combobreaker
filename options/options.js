@@ -41,6 +41,7 @@ async function init() {
   });
 
   bindDarkTuneInputs();
+  bindDownloads(g);
 
   await refreshSites();
 
@@ -56,6 +57,7 @@ async function init() {
   $("css-area").addEventListener("input", () => (STATE.dirty = true));
   $("js-area").addEventListener("input", () => (STATE.dirty = true));
   $("meta-dark").addEventListener("change", () => (STATE.dirty = true));
+  $("meta-overlay").addEventListener("change", () => (STATE.dirty = true));
 
   $("add-req-header").addEventListener("click", () => addHeaderRow("req"));
   $("add-res-header").addEventListener("click", () => addHeaderRow("res"));
@@ -92,6 +94,11 @@ async function init() {
 function parseHash() {
   const h = location.hash.replace(/^#/, "");
   if (!h) return;
+  if (h === "downloads") {
+    $("bridge-install").open = true;
+    $("downloads").scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
   const [tab, site] = h.split("/");
   if (tab && ["css", "js", "headers", "meta"].includes(tab)) STATE.activeTab = tab;
   if (site) selectSite(decodeURIComponent(site));
@@ -124,6 +131,8 @@ function renderSites() {
     if (settings.jsEnabled) badges.appendChild(badge("JS"));
     if (settings.darkMode === "on") badges.appendChild(badge("DARK ON"));
     else if (settings.darkMode === "off") badges.appendChild(badge("DARK OFF"));
+    if (settings.mediaOverlay === false) badges.appendChild(badge("NO BADGES"));
+    else if (settings.mediaOverlay === true) badges.appendChild(badge("BADGES"));
     li.appendChild(name);
     li.appendChild(badges);
     li.addEventListener("click", () => selectSite(siteKey));
@@ -150,6 +159,8 @@ async function selectSite(siteKey, isNew = false) {
   $("js-area").value = STATE.activeSettings.js || "";
   const dm = STATE.activeSettings.darkMode;
   $("meta-dark").value = dm === "on" || dm === "off" ? dm : "";
+  const mo = STATE.activeSettings.mediaOverlay;
+  $("meta-overlay").value = mo === true ? "on" : mo === false ? "off" : "";
   $("headers-site-label").textContent = siteKey;
   renderHeaderRules("req", STATE.activeSettings.requestHeaders || []);
   renderHeaderRules("res", STATE.activeSettings.responseHeaders || []);
@@ -211,6 +222,8 @@ async function saveActive() {
   }
   const meta = $("meta-dark").value;
   patch.darkMode = meta === "on" || meta === "off" ? meta : null;
+  const mo = $("meta-overlay").value;
+  patch.mediaOverlay = mo === "on" ? true : mo === "off" ? false : null;
   // Headers are read straight off the DOM each save so unsaved row edits
   // outside the active tab don't get lost.
   patch.requestHeaders = readHeaderRules("req");
@@ -406,6 +419,93 @@ function debounce(fn, ms) {
     clearTimeout(t);
     t = setTimeout(() => fn(...args), ms);
   };
+}
+
+// ─────────────────── Downloads / yt-dlp bridge ───────────────────
+
+function bindDownloads(g) {
+  $("g-overlay").checked = g.mediaOverlayEnabled !== false;
+  $("g-overlay").addEventListener("change", async (e) => {
+    await setGlobal({ mediaOverlayEnabled: e.target.checked });
+    toast(`Download badges ${e.target.checked ? "on" : "off"} by default`, "ok");
+  });
+
+  const y = g.ytdlp || {};
+  $("y-outdir").value = y.outputDir || "";
+  $("y-quality").value = y.quality || "best";
+  $("y-mp4").checked = y.preferMp4 !== false;
+  $("y-ytdlp").value = y.ytdlpPath || "";
+  $("y-ffmpeg").value = y.ffmpegPath || "";
+  $("y-cookies").value = y.cookiesFromBrowser || "";
+  $("y-extra").value = y.extraArgs || "";
+
+  // Debounced, but edits to different fields inside the window are merged so
+  // none of them get lost.
+  let pendingY = {};
+  const flushY = debounce(async () => {
+    const patch = pendingY;
+    pendingY = {};
+    await setGlobal({ ytdlp: patch });
+    toast("Saved", "ok");
+    // Paths changed → the host's cached lookup is stale; force a re-ping.
+    if ("ytdlpPath" in patch || "ffmpegPath" in patch || "outputDir" in patch) checkBridge(true);
+  }, 400);
+  const pushY = (patch) => {
+    pendingY = { ...pendingY, ...patch };
+    flushY();
+  };
+
+  $("y-outdir").addEventListener("input", (e) => pushY({ outputDir: e.target.value.trim() }));
+  $("y-quality").addEventListener("change", (e) => pushY({ quality: e.target.value }));
+  $("y-mp4").addEventListener("change", (e) => pushY({ preferMp4: e.target.checked }));
+  $("y-ytdlp").addEventListener("input", (e) => pushY({ ytdlpPath: e.target.value.trim() }));
+  $("y-ffmpeg").addEventListener("input", (e) => pushY({ ffmpegPath: e.target.value.trim() }));
+  $("y-cookies").addEventListener("change", (e) => pushY({ cookiesFromBrowser: e.target.value }));
+  $("y-extra").addEventListener("input", (e) => pushY({ extraArgs: e.target.value }));
+
+  const id = chrome.runtime.id;
+  $("ext-id").textContent = id;
+  $("install-cmd").textContent = `powershell -ExecutionPolicy Bypass -File .\\native\\install.ps1 -ExtensionId ${id}`;
+  document.querySelectorAll("code[data-copy]").forEach((c) => {
+    c.title = "Click to copy";
+    c.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(c.textContent);
+        toast("Copied", "ok");
+      } catch (e) {
+        toast(`Copy failed: ${e.message}`, "err");
+      }
+    });
+  });
+
+  $("bridge-recheck").addEventListener("click", () => checkBridge(true));
+  checkBridge(false);
+}
+
+async function checkBridge(force) {
+  const dot = $("bridge-dot");
+  const text = $("bridge-text");
+  dot.className = "bridge-dot";
+  text.textContent = "Checking…";
+  let res = null;
+  try {
+    const r = await chrome.runtime.sendMessage({ type: "ytdlp-status", force: !!force });
+    if (!r || r.ok === false) throw new Error((r && r.error) || "no response");
+    res = r.result;
+  } catch (e) {
+    res = { available: false, error: String(e.message || e) };
+  }
+  if (res.available) {
+    dot.className = `bridge-dot ${res.ffmpeg ? "ok" : "warn"}`;
+    const yt = res.ytdlp || {};
+    const ff = res.ffmpeg;
+    text.textContent = `Connected · yt-dlp ${yt.version || ""} (${yt.path || "?"})` + (ff ? ` · ffmpeg ${ff.version || ""}` : " · ffmpeg NOT found: video+audio can't be merged");
+    if (!$("bridge-install").open && location.hash !== "#downloads") $("bridge-install").open = false;
+  } else {
+    dot.className = "bridge-dot err";
+    text.textContent = `Not connected: ${res.error || "unknown"}`;
+    $("bridge-install").open = true;
+  }
 }
 
 let toastTimer = null;

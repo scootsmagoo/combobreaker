@@ -47,10 +47,48 @@ async function init() {
 
   if (parsed.kind === "master") {
     STATE.variants = parsed.variants;
+    STATE.hasSeparateAudio = !!parsed.hasSeparateAudio;
     renderVariants(parsed.variants);
   } else {
     await prepareMediaPlaylist(parsed, SOURCE_URL, text);
   }
+  offerBridge().catch(() => {});
+}
+
+// If the yt-dlp bridge is installed, offer it: yt-dlp handles fMP4, separate
+// audio renditions, AES-128 and DASH, and writes a proper .mp4.
+async function offerBridge() {
+  const status = await sendToSw({ type: "ytdlp-status" });
+  if (!status || !status.available) return;
+  const panel = $("bridge-panel");
+  panel.hidden = false;
+  $("bridge-btn").onclick = async () => {
+    $("bridge-btn").disabled = true;
+    try {
+      await sendToSw({
+        type: "ytdlp-download",
+        url: SOURCE_URL,
+        quality: "best",
+        title: SOURCE_TITLE,
+        page: REFERER,
+        referer: REFERER,
+      });
+      $("bridge-note").textContent = "Started. Progress shows in the ComboBreaker popup (Media tab).";
+    } catch (e) {
+      $("bridge-note").textContent = `Failed: ${e.message}`;
+      $("bridge-btn").disabled = false;
+    }
+  };
+}
+
+function sendToSw(msg) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(msg, (res) => {
+      if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+      if (!res || res.ok === false) return reject(new Error((res && res.error) || "error"));
+      resolve(res.result);
+    });
+  });
 }
 
 function renderVariants(variants) {
@@ -135,12 +173,19 @@ async function prepareMediaPlaylist(parsed, playlistUrl, _rawText) {
         `ComboBreaker doesn't decrypt HLS. The stream is probably DRM-protected.`
     );
   } else if (STATE.container === "fmp4") {
-    $("start-btn").disabled = true;
-    showFatal(
-      "This stream uses fragmented-MP4 segments (.m4s). Concatenation alone " +
-        "won't produce a valid file; that needs a real muxer (ffmpeg.wasm). " +
-        "Drop the ffmpeg.wasm bundle into vendor/ffmpeg/ to enable that path."
-    );
+    // A single-track fMP4 rendition is just init segment + media segments;
+    // concatenating them in order yields a valid fragmented MP4. What we
+    // can't do is mux a separate audio rendition in; warn when the master
+    // playlist advertised one.
+    if (STATE.hasSeparateAudio) {
+      log(
+        "Warning: this playlist keeps audio in a separate track. The file will be " +
+          "video-only. For a merged file use the yt-dlp bridge (button above) or run " +
+          `ffmpeg -i "${playlistUrl}" -c copy out.mp4`
+      );
+    } else {
+      log("fMP4 stream: init segment + media segments will be concatenated into an .mp4.");
+    }
   } else if (STATE.isLive) {
     log("Note: live stream. Only the current window of segments will be captured.");
   }
@@ -178,6 +223,13 @@ async function startDownload() {
   const startedAt = performance.now();
   let lastUpdate = 0;
 
+  if (STATE.initSegmentUrl) {
+    log("Fetching init segment…");
+    const init = await fetchBytes(STATE.initSegmentUrl);
+    chunks.push(init);
+    bytesSoFar += init.byteLength;
+  }
+
   for (let i = 0; i < total; i++) {
     if (STATE.cancelled) {
       log(`Stopped at segment ${i + 1}/${total}.`);
@@ -213,8 +265,9 @@ async function startDownload() {
 
   log(`Concatenated ${total} segments → ${formatBytes(bytesSoFar)}.`);
 
-  const filename = $("filename").value || `combobreaker-hls-${Date.now()}.ts`;
-  const blob = new Blob(chunks, { type: "video/mp2t" });
+  const isMp4 = STATE.container === "fmp4";
+  const filename = $("filename").value || `combobreaker-hls-${Date.now()}.${isMp4 ? "mp4" : "ts"}`;
+  const blob = new Blob(chunks, { type: isMp4 ? "video/mp4" : "video/mp2t" });
   const url = URL.createObjectURL(blob);
   try {
     await chrome.downloads.download({
@@ -240,8 +293,14 @@ function parseM3u8(text, baseUrl) {
 
 function parseMaster(lines, baseUrl) {
   const variants = [];
+  let hasSeparateAudio = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (line.startsWith("#EXT-X-MEDIA:")) {
+      const attrs = parseAttrList(line.slice("#EXT-X-MEDIA:".length));
+      if ((attrs["TYPE"] || "").toUpperCase() === "AUDIO" && attrs["URI"]) hasSeparateAudio = true;
+      continue;
+    }
     if (!line.startsWith("#EXT-X-STREAM-INF:")) continue;
     const attrs = parseAttrList(line.slice("#EXT-X-STREAM-INF:".length));
     let url = "";
@@ -261,7 +320,7 @@ function parseMaster(lines, baseUrl) {
       frameRate: attrs["FRAME-RATE"] ? Number(attrs["FRAME-RATE"]) : null,
     });
   }
-  return { kind: "master", variants };
+  return { kind: "master", variants, hasSeparateAudio };
 }
 
 function parseMedia(lines, baseUrl) {

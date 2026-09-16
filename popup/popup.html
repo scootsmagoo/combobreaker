@@ -109,18 +109,51 @@
       <section id="pane-media" class="pane">
         <div class="cookies-toolbar">
           <span id="media-count" class="muted">—</span>
-          <button id="media-refresh" class="ghost-btn" title="Re-scan the page DOM">↻</button>
+          <button id="media-refresh" class="ghost-btn" title="Re-scan the page">↻</button>
           <button id="media-ytdlp" class="ghost-btn" title="Copy a yt-dlp command for the current page URL">Copy yt-dlp</button>
-          <button id="media-clear" class="danger-btn" title="Clear detected media for this tab">Clear</button>
+          <button id="media-clear" class="danger-btn" title="Clear detected media and finished jobs for this tab">Clear</button>
         </div>
-        <div id="media-yt-banner" class="media-banner" hidden>
-          <strong>YouTube detected.</strong> Direct downloads won't work
-          (signed adaptive streams). Use <em>Copy yt-dlp</em> above and run
-          <code>yt-dlp &lt;paste&gt;</code> in a terminal.
+
+        <div class="media-bridge" id="media-bridge">
+          <span class="bridge-dot" id="bridge-dot"></span>
+          <span class="bridge-text" id="bridge-text">Checking yt-dlp bridge…</span>
+          <button id="bridge-setup" class="media-btn" hidden>Set up</button>
+          <button id="bridge-recheck" class="media-btn" title="Re-check the bridge">↻</button>
         </div>
-        <div id="media-list" class="media-list">
-          <div class="empty muted">Nothing detected yet. Play the video and re-open this popup.</div>
+
+        <div class="media-toggles">
+          <label class="row compact" title="Show a download badge when hovering videos and thumbnails">
+            <span>Download badges on this site</span>
+            <input type="checkbox" id="t-overlay-site" />
+          </label>
+          <label class="row compact" title="Default for sites without their own setting">
+            <span>Badges everywhere (default)</span>
+            <input type="checkbox" id="t-overlay-global" />
+          </label>
         </div>
+
+        <div id="media-jobs-wrap" hidden>
+          <div class="media-section-head">
+            <span>yt-dlp downloads</span>
+            <button id="media-jobs-clear" class="media-btn" title="Remove finished jobs">Clear done</button>
+          </div>
+          <div id="media-jobs" class="media-jobs"></div>
+        </div>
+
+        <div class="media-section-head">
+          <span id="media-videos-label">Videos on this page</span>
+          <span class="muted" id="media-videos-hint"></span>
+        </div>
+        <div id="media-videos" class="media-videos">
+          <div class="empty muted">Scanning…</div>
+        </div>
+
+        <details class="media-raw" id="media-raw">
+          <summary>Raw media URLs <span class="muted" id="media-raw-count"></span></summary>
+          <div id="media-list" class="media-list">
+            <div class="empty muted">Nothing detected yet. Play the video and re-open this popup.</div>
+          </div>
+        </details>
       </section>
 
       <!--  Browse (Tier 3) pane  -->

@@ -79,6 +79,95 @@
           </p>
         </section>
 
+        <section class="side-section" id="downloads">
+          <h2>Downloads</h2>
+          <label class="row">
+            <span>On-page download badges</span>
+            <input type="checkbox" id="g-overlay" />
+          </label>
+          <p class="hint">
+            Hover a video or thumbnail to get a download badge. Per-site
+            on/off lives in the popup's Media tab.
+          </p>
+
+          <h3 class="sub-h">yt-dlp bridge</h3>
+          <div class="bridge-status" id="bridge-status">
+            <span class="bridge-dot" id="bridge-dot"></span>
+            <span id="bridge-text">Checking…</span>
+            <button type="button" id="bridge-recheck" class="ghost-btn" title="Re-check">↻</button>
+          </div>
+          <p class="hint">
+            One-click YouTube, DASH and split-audio HLS downloads by running a
+            locally installed <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noopener">yt-dlp</a>
+            (+ <a href="https://ffmpeg.org/" target="_blank" rel="noopener">ffmpeg</a>) through Chrome's native messaging. Nothing leaves your machine.
+          </p>
+          <details class="bridge-install" id="bridge-install">
+            <summary>Install / repair the bridge</summary>
+            <ol class="hint steps">
+              <li>Install the tools (Windows):
+                <code class="cmd" data-copy>winget install yt-dlp.yt-dlp Gyan.FFmpeg OpenJS.NodeJS.LTS</code>
+              </li>
+              <li>From the ComboBreaker source folder, register the host for this extension ID
+                (<code id="ext-id">…</code>):
+                <code class="cmd" id="install-cmd" data-copy>…</code>
+              </li>
+              <li>Fully quit and relaunch the browser, then hit ↻ above.</li>
+            </ol>
+            <p class="hint">
+              macOS / Linux: <code>./native/install.sh &lt;extension-id&gt;</code>.
+              Remove with <code>native/uninstall.ps1</code>. Details in <code>native/README.md</code>.
+            </p>
+          </details>
+
+          <div class="bridge-fields">
+            <label class="field">
+              <span>Save to folder</span>
+              <input type="text" id="y-outdir" placeholder="~/Downloads/combobreaker" spellcheck="false" />
+            </label>
+            <label class="field">
+              <span>Default quality</span>
+              <select id="y-quality">
+                <option value="best">Best available</option>
+                <option value="1080">1080p</option>
+                <option value="720">720p</option>
+                <option value="480">480p</option>
+                <option value="audio">Audio only (MP3)</option>
+              </select>
+            </label>
+            <label class="row">
+              <span>Prefer MP4 (H.264/AAC)</span>
+              <input type="checkbox" id="y-mp4" />
+            </label>
+            <label class="field">
+              <span>yt-dlp path (optional)</span>
+              <input type="text" id="y-ytdlp" placeholder="auto-detect" spellcheck="false" />
+            </label>
+            <label class="field">
+              <span>ffmpeg path (optional)</span>
+              <input type="text" id="y-ffmpeg" placeholder="auto-detect" spellcheck="false" />
+            </label>
+            <label class="field">
+              <span>Cookies from browser</span>
+              <select id="y-cookies">
+                <option value="">Off</option>
+                <option value="chrome">Chrome</option>
+                <option value="chromium">Chromium</option>
+                <option value="edge">Edge</option>
+                <option value="brave">Brave</option>
+                <option value="firefox">Firefox</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Extra yt-dlp args</span>
+              <input type="text" id="y-extra" placeholder='--embed-thumbnail --sub-langs en' spellcheck="false" />
+            </label>
+            <p class="hint">
+              Cookies let yt-dlp fetch age-gated or members-only videos; Chrome
+              must be fully closed for yt-dlp to read its cookie DB on Windows.
+            </p>
+          </div>
+        </section>
+
         <section class="side-section">
           <div class="side-header">
             <h2>Sites</h2>
@@ -158,6 +247,14 @@ console.log('hello from ComboBreaker');
           <label class="row">
             <span>Dark mode for this site</span>
             <select id="meta-dark">
+              <option value="">Auto (follow global)</option>
+              <option value="on">Always on</option>
+              <option value="off">Always off</option>
+            </select>
+          </label>
+          <label class="row">
+            <span>Download badges for this site</span>
+            <select id="meta-overlay">
               <option value="">Auto (follow global)</option>
               <option value="on">Always on</option>
               <option value="off">Always off</option>
