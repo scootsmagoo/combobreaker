@@ -6,6 +6,7 @@ import {
   listSites,
   deleteSite,
 } from "../lib/storage.js";
+import { helperInstallCommand } from "../lib/helper.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -95,7 +96,6 @@ function parseHash() {
   const h = location.hash.replace(/^#/, "");
   if (!h) return;
   if (h === "downloads") {
-    $("bridge-install").open = true;
     $("downloads").scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
@@ -437,6 +437,7 @@ function bindDownloads(g) {
   $("y-ytdlp").value = y.ytdlpPath || "";
   $("y-ffmpeg").value = y.ffmpegPath || "";
   $("y-cookies").value = y.cookiesFromBrowser || "";
+  $("y-cookies-send").checked = !!y.sendCookies;
   $("y-extra").value = y.extraArgs || "";
 
   // Debounced, but edits to different fields inside the window are merged so
@@ -461,11 +462,13 @@ function bindDownloads(g) {
   $("y-ytdlp").addEventListener("input", (e) => pushY({ ytdlpPath: e.target.value.trim() }));
   $("y-ffmpeg").addEventListener("input", (e) => pushY({ ffmpegPath: e.target.value.trim() }));
   $("y-cookies").addEventListener("change", (e) => pushY({ cookiesFromBrowser: e.target.value }));
+  $("y-cookies-send").addEventListener("change", (e) => pushY({ sendCookies: e.target.checked }));
   $("y-extra").addEventListener("input", (e) => pushY({ extraArgs: e.target.value }));
 
   const id = chrome.runtime.id;
   $("ext-id").textContent = id;
-  $("install-cmd").textContent = `powershell -ExecutionPolicy Bypass -File .\\native\\install.ps1 -ExtensionId ${id}`;
+  $("install-cmd").textContent = `./native/install.sh ${id}    # Windows: native\\install.cmd ${id}`;
+  $("install-oneliner").textContent = helperInstallCommand(id);
   document.querySelectorAll("code[data-copy]").forEach((c) => {
     c.title = "Click to copy";
     c.addEventListener("click", async () => {
@@ -479,6 +482,26 @@ function bindDownloads(g) {
   });
 
   $("bridge-recheck").addEventListener("click", () => checkBridge(true));
+  $("bridge-setup").addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "open-helper-setup" }).catch(() => {});
+  });
+  $("bridge-update").addEventListener("click", async () => {
+    const b = $("bridge-update");
+    b.disabled = true;
+    b.textContent = "Updating…";
+    try {
+      const r = await chrome.runtime.sendMessage({ type: "ytdlp-update" });
+      if (!r || r.ok === false) throw new Error((r && r.error) || "no response");
+      const u = r.result || {};
+      toast(u.updated ? `yt-dlp updated to ${u.version}` : u.ok ? `yt-dlp ${u.version} is already the latest` : `Update failed: ${(u.output || "").split("\n").pop()}`, u.ok ? "ok" : "err");
+      checkBridge(true);
+    } catch (e) {
+      toast(`Update failed: ${e.message}`, "err");
+    } finally {
+      b.disabled = false;
+      b.textContent = "Update yt-dlp";
+    }
+  });
   checkBridge(false);
 }
 
@@ -495,16 +518,25 @@ async function checkBridge(force) {
   } catch (e) {
     res = { available: false, error: String(e.message || e) };
   }
+  const setup = $("bridge-setup");
+  const update = $("bridge-update");
   if (res.available) {
     dot.className = `bridge-dot ${res.ffmpeg ? "ok" : "warn"}`;
     const yt = res.ytdlp || {};
     const ff = res.ffmpeg;
-    text.textContent = `Connected · yt-dlp ${yt.version || ""} (${yt.path || "?"})` + (ff ? ` · ffmpeg ${ff.version || ""}` : " · ffmpeg NOT found: video+audio can't be merged");
-    if (!$("bridge-install").open && location.hash !== "#downloads") $("bridge-install").open = false;
+    text.textContent = `Connected · yt-dlp ${yt.version || ""}` + (ff ? ` · ffmpeg ${ff.version || ""}` : " · ffmpeg NOT found: video+audio can't be merged");
+    text.title = [yt.display || yt.path, ff && ff.path, res.helperDir && `Helper folder: ${res.helperDir}`].filter(Boolean).join("\n");
+    setup.textContent = "Setup page";
+    setup.className = "text-btn";
+    update.hidden = false;
   } else {
+    const notInstalled = /not installed/i.test(res.error || "");
     dot.className = "bridge-dot err";
-    text.textContent = `Not connected: ${res.error || "unknown"}`;
-    $("bridge-install").open = true;
+    text.textContent = notInstalled ? "Not set up yet" : `Needs a repair: ${res.error || "unknown"}`;
+    text.title = res.error || "";
+    setup.textContent = notInstalled ? "Set up the Helper" : "Repair the Helper";
+    setup.className = "primary-btn";
+    update.hidden = true;
   }
 }
 

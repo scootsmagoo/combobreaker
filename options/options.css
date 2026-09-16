@@ -423,6 +423,14 @@ header a { color: var(--accent); }
   border: 1px solid var(--border); border-radius: 4px; background: var(--bg-3);
 }
 .bridge-install code.cmd:hover { border-color: var(--accent); }
+.bridge-actions { display: flex; gap: 8px; align-items: center; margin: 8px 0 10px; }
+.bridge-actions .primary-btn { padding: 6px 12px; font-size: 12px; }
+.text-btn {
+  padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer; color: var(--fg);
+  background: var(--bg-3); border: 1px solid var(--border); border-radius: 4px;
+}
+.text-btn:hover { border-color: var(--accent); color: var(--accent); }
+.text-btn:disabled { opacity: .6; cursor: default; }
 .bridge-fields { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
 .bridge-fields .field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--fg-dim); }
 .bridge-fields .field input[type="text"], .bridge-fields .field select {

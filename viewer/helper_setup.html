@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Set up the Helper · ComboBreaker</title>
+    <link rel="icon" href="../icons/icon32.png" />
+    <link rel="stylesheet" href="helper_setup.css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <img src="../icons/icon32.png" alt="" width="22" height="22" />
+        <span>ComboBreaker</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="intro">
+        <h1>One-time setup for YouTube downloads</h1>
+        <p>
+          Downloading from YouTube (and a few other sites) needs a small program on your computer.
+          It runs <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noopener">yt-dlp</a>
+          for the extension. Nothing is sent anywhere except to the video site itself, exactly as if you
+          were watching it.
+        </p>
+      </section>
+
+      <section id="status" class="status waiting" aria-live="polite">
+        <span class="dot"></span>
+        <div class="status-text">
+          <strong id="status-title">Checking…</strong>
+          <span id="status-detail"></span>
+        </div>
+        <button type="button" id="recheck" class="ghost">Check again</button>
+      </section>
+
+      <!-- macOS / Linux -->
+      <section id="steps-posix" class="steps" hidden>
+        <ol>
+          <li>
+            <h2>Copy the setup command</h2>
+            <div class="cmd-row">
+              <code id="cmd" class="cmd"></code>
+              <button type="button" id="copy" class="primary">Copy</button>
+            </div>
+          </li>
+          <li>
+            <h2>Paste it into Terminal and press Return</h2>
+            <p id="terminal-hint"></p>
+            <p class="muted">
+              It downloads about 250 MB (a private copy of Node, Python, yt-dlp and ffmpeg) into your
+              user folder. Nothing else on your computer is changed.
+            </p>
+          </li>
+          <li>
+            <h2>Come back here</h2>
+            <p>This page turns green on its own when the Helper is ready. Then just click any download badge.</p>
+          </li>
+        </ol>
+      </section>
+
+      <!-- Windows -->
+      <section id="steps-win" class="steps" hidden>
+        <ol>
+          <li>
+            <h2>Download the installer</h2>
+            <p><button type="button" id="download-win" class="primary">Download “Install ComboBreaker Helper.cmd”</button></p>
+            <p class="muted">If Chrome says the file “may be dangerous”, choose <strong>Keep</strong>. It is a plain script you can open in Notepad.</p>
+          </li>
+          <li>
+            <h2>Open the downloaded file</h2>
+            <p>
+              If Windows shows “Windows protected your PC”, click <strong>More info</strong>, then
+              <strong>Run anyway</strong>. A window shows the progress and closes when done.
+            </p>
+            <p class="muted">
+              It downloads about 250 MB (a private copy of Node, Python, yt-dlp and ffmpeg) into your
+              user folder. No admin rights are needed.
+            </p>
+          </li>
+          <li>
+            <h2>Come back here</h2>
+            <p>This page turns green on its own when the Helper is ready. Then just click any download badge.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="done" id="done" hidden>
+        <h2>All set</h2>
+        <p>Close this tab and click the download badge on any video. Downloads land in <code id="outdir">~/Downloads/combobreaker</code>.</p>
+        <p class="muted">Change the folder or default quality in <a href="#" id="open-options">ComboBreaker options</a>.</p>
+      </section>
+
+      <details class="more">
+        <summary>If YouTube asks you to “sign in to confirm you’re not a bot”</summary>
+        <p>
+          Some networks trip YouTube’s bot check. Turn on <strong>Use my browser’s cookies</strong> in
+          ComboBreaker options › Downloads and try again: the download then looks like your own browser
+          session. Use this with an account you would not mind YouTube frowning at; heavy downloading
+          on a signed-in account has occasionally led to warnings.
+        </p>
+      </details>
+
+      <details class="more">
+        <summary>What gets installed, and how to remove it</summary>
+        <p>Everything lives in one folder: <code id="folder"></code></p>
+        <ul>
+          <li>a private copy of Node.js (runs the bridge script that talks to the extension)</li>
+          <li>a private copy of Python with yt-dlp (does the actual downloading, updates itself)</li>
+          <li>a static ffmpeg build (joins video and audio, makes MP3s)</li>
+          <li>one small registration file so your browser knows where the Helper is</li>
+        </ul>
+        <p>Remove it any time by running <code id="uninstall"></code>.</p>
+      </details>
+
+      <details class="more">
+        <summary>Manual install (developers)</summary>
+        <p>From a checkout of the repo, with this extension id <code id="ext-id"></code>:</p>
+        <code class="cmd block">./native/install.sh <span id="ext-id-2"></span></code>
+        <p class="muted">Add <code>--browsers chrome,brave,edge</code> to register for several browsers. On Windows run <code>native\install.cmd &lt;id&gt;</code>.</p>
+      </details>
+    </main>
+
+    <div id="toast" class="toast" hidden></div>
+    <script type="module" src="helper_setup.js"></script>
+  </body>
+</html>

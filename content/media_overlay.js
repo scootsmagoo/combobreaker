@@ -610,6 +610,19 @@
     .pin.err { border-color: rgba(248,113,113,.6); }
     .pin .x { all: unset; cursor: pointer; color: #94a3b8; padding: 0 2px; }
     .pin .x:hover { color: #f87171; }
+    .prompt { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: auto;
+      width: min(420px, calc(100vw - 32px)); background: rgba(15, 23, 42, .98); border: 1px solid rgba(148,163,184,.4);
+      border-radius: 12px; box-shadow: 0 16px 48px rgba(0,0,0,.55); padding: 18px 18px 14px; font-size: 13px; animation: cbin .15s ease; }
+    .prompt .pt { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .prompt .pm { color: #cbd5e1; line-height: 1.45; }
+    .prompt .pm b { color: #e2e8f0; }
+    .prompt .pb { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+    .prompt button { all: unset; cursor: pointer; padding: 7px 12px; border-radius: 7px; font: inherit; font-weight: 600; }
+    .prompt button.go { background: #38bdf8; color: #0b1220; }
+    .prompt button.go:hover { background: #7dd3fc; }
+    .prompt button.no { color: #94a3b8; }
+    .prompt button.no:hover { color: #e2e8f0; }
+    .scrim { position: fixed; inset: 0; pointer-events: auto; background: rgba(0,0,0,.25); }
     .flash { position: fixed; pointer-events: none; border: 3px solid #38bdf8; border-radius: 8px;
       box-shadow: 0 0 0 4px rgba(56,189,248,.35); animation: cbflash 1.6s ease forwards; }
     @keyframes cbflash { 0% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
@@ -861,13 +874,13 @@
     if (manifests.length) {
       addSec("Stream");
       for (const s of manifests) {
-        const sub = bridge.available ? "via yt-dlp bridge" : s.kind === "hls" ? "HLS downloader" : "needs yt-dlp bridge";
+        const sub = bridge.available ? "via the Helper" : s.kind === "hls" ? "HLS downloader" : "needs the Helper";
         addRow(`${s.label} · ${hostOf(s.url)}`, sub, () => doDownload(t, s, "best"));
       }
     }
 
     if (ytd) {
-      addSec(bridge.available ? "yt-dlp bridge" : "yt-dlp (copy command)");
+      addSec(bridge.available ? "Download" : "YouTube");
       if (bridge.available) {
         for (const p of QUALITY_PRESETS) {
           if (p.q === "audio" && !bridge.ffmpeg) continue;
@@ -880,14 +893,9 @@
           menuEl.appendChild(n);
         }
       } else {
-        addRow("Copy yt-dlp command", "bridge not installed", () => {
-          copyText(`yt-dlp "${ytd.url}"`);
-          toast("ok", "Copied", `yt-dlp "${ytd.url}"`);
+        addRow("Set up one-click downloads…", "free Helper · about a minute", () => {
           closeMenu();
-        });
-        addRow("Set up the bridge…", "one-click YouTube downloads", () => {
-          sendToSw({ type: "open-options", section: "downloads" }).catch(() => {});
-          closeMenu();
+          showHelperPrompt({ installed: false });
         });
       }
     }
@@ -980,7 +988,7 @@
   let bridgeCache = null;
   let bridgeCacheAt = 0;
   async function bridgeStatus() {
-    if (bridgeCache && Date.now() - bridgeCacheAt < 30000) return bridgeCache;
+    if (bridgeCache && Date.now() - bridgeCacheAt < 15000) return bridgeCache;
     try {
       bridgeCache = (await sendToSw({ type: "ytdlp-status" })) || { available: false };
     } catch {
@@ -1021,14 +1029,15 @@
       if (res.mode === "direct") {
         toast("ok", "Download started", res.filename || source.url);
       } else if (res.mode === "ytdlp") {
-        toast("ok", "yt-dlp started", item.title || source.url);
+        toast("ok", "Download started", item.title || source.url);
         upsertJob({ id: res.jobId, itemId: item.id, status: "queued", percent: 0, title: item.title });
         pinFor(t, res.jobId);
       } else if (res.mode === "hls-page") {
         toast("ok", "HLS downloader opened", "Pick a quality in the new tab.");
-      } else if (res.mode === "copy") {
-        copyText(res.cmd);
-        toast("ok", "yt-dlp command copied", `${res.reason || "Bridge not installed."} Paste it in a terminal.`);
+      } else if (res.mode === "needs-helper") {
+        hideBadge(true);
+        showHelperPrompt(res);
+        return;
       } else if (res.mode === "error") {
         throw new Error(res.message || "download failed");
       }
@@ -1036,6 +1045,61 @@
       toast("err", "Download failed", String(e.message || e));
     }
     hideBadge(true);
+  }
+
+  // One-time setup prompt for sites that need the Helper (YouTube, DASH).
+  let promptEl = null;
+  function closePrompt() {
+    if (promptEl) promptEl.remove();
+    promptEl = null;
+    document.removeEventListener("keydown", onPromptKey, true);
+  }
+  function onPromptKey(e) {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      closePrompt();
+    }
+  }
+  function showHelperPrompt(res) {
+    ensureUi();
+    if (!root) return;
+    closePrompt();
+    bridgeCache = null; // re-check as soon as the user comes back
+    const broken = !!(res && res.installed);
+    const wrap = document.createElement("div");
+    wrap.className = "scrim";
+    const card = document.createElement("div");
+    card.className = "prompt";
+    card.innerHTML = `<div class="pt"></div><div class="pm"></div>
+      <div class="pb"><button type="button" class="no">Not now</button><button type="button" class="go"></button></div>`;
+    card.querySelector(".pt").textContent = broken ? "The Helper needs a quick repair" : "One-time setup for YouTube downloads";
+    const pm = card.querySelector(".pm");
+    if (broken) {
+      pm.textContent = `${(res && res.reason) || "The Helper did not answer."} Running the setup again fixes it in about a minute.`;
+    } else {
+      pm.innerHTML = `Downloading from this site needs the free <b>ComboBreaker Helper</b>, a small program that runs
+        yt-dlp on your computer. Nothing is sent anywhere except to the video site itself. Setup takes about a minute,
+        and after that every download is one click.`;
+    }
+    card.querySelector(".go").textContent = broken ? "Repair the Helper" : "Set up now";
+    card.querySelector(".go").addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      sendToSw({ type: "open-helper-setup" }).catch(() => {});
+      closePrompt();
+    });
+    card.querySelector(".no").addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      closePrompt();
+    });
+    wrap.addEventListener("mousedown", (e) => {
+      if (e.target === wrap) closePrompt();
+    });
+    wrap.appendChild(card);
+    root.querySelector(".layer").appendChild(wrap);
+    promptEl = wrap;
+    document.addEventListener("keydown", onPromptKey, true);
   }
 
   function copyText(s) {
@@ -1288,7 +1352,14 @@
               sendToSw({ type: "ytdlp-reveal", path: j.filepath }).catch(() => {});
             });
           } else if (j.status === "error") {
-            toast("err", "yt-dlp failed", j.error || "");
+            const err = j.error || "";
+            if (/sign in to confirm|not a bot/i.test(err)) {
+              toastWithAction("err", "YouTube wants a sign-in check",
+                "Turn on “Use my browser’s cookies” in ComboBreaker options › Downloads, then try again.",
+                "Open options", () => sendToSw({ type: "open-options", section: "downloads" }).catch(() => {}));
+            } else {
+              toast("err", "Download failed", err.replace(/^yt-dlp exited with code \d+\.\s*/, ""));
+            }
           }
         }
       }

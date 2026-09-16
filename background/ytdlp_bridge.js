@@ -14,12 +14,15 @@ export const HOST_NAME = "com.combobreaker.ytdlp";
 const JOBS_KEY = "ytdlp:jobs";
 const MAX_JOBS = 40;
 const IDLE_CLOSE_MS = 90_000;
-const PING_TIMEOUT_MS = 12_000;
+// A cold yt-dlp start can take a few seconds; the ping probes yt-dlp and ffmpeg.
+const PING_TIMEOUT_MS = 45_000;
+const UPDATE_TIMEOUT_MS = 200_000;
 
 let port = null;
 let portError = null;
 let idleTimer = null;
 let pendingPing = null; // { resolve, reject, timer }
+let pendingUpdate = null; // { id, resolve, timer }
 let statusCache = null; // { at, value }
 const jobs = new Map(); // id -> job (in-memory mirror of storage.session)
 let jobsLoaded = false;
@@ -37,7 +40,33 @@ async function bridgeSettings() {
     preferMp4: y.preferMp4 !== false,
     extraArgs: y.extraArgs || "",
     cookiesFromBrowser: y.cookiesFromBrowser || "",
+    sendCookies: !!y.sendCookies,
   };
+}
+
+// ---------- cookies ----------
+
+// Netscape cookie file for everything this browser would send to `url`, so
+// yt-dlp can pass YouTube's "sign in to confirm you're not a bot" check the
+// same way the tab did. Opt-in (Options › Downloads). No keychain prompts:
+// chrome.cookies hands them over already decrypted.
+async function cookieFileFor(url) {
+  if (!url || !chrome.cookies) return "";
+  let list = [];
+  try {
+    list = await chrome.cookies.getAll({ url });
+  } catch {
+    return "";
+  }
+  if (!list.length) return "";
+  const lines = ["# Netscape HTTP Cookie File", "# Exported by ComboBreaker for one download; deleted afterwards.", ""];
+  for (const c of list) {
+    const domain = c.domain || "";
+    const sub = domain.startsWith(".") ? "TRUE" : "FALSE";
+    const expiry = c.expirationDate ? Math.floor(c.expirationDate) : 0;
+    lines.push([domain, sub, c.path || "/", c.secure ? "TRUE" : "FALSE", String(expiry), c.name, c.value].join("\t"));
+  }
+  return lines.join("\n") + "\n";
 }
 
 // ---------- port ----------
@@ -77,16 +106,16 @@ function ensurePort() {
 function friendlyPortError(msg) {
   const m = String(msg || "");
   if (/Specified native messaging host not found/i.test(m)) {
-    return "Native host not registered. Run native/install.ps1 (see ComboBreaker options › Downloads).";
+    return "Helper not installed.";
   }
   if (/Access to the specified native messaging host is forbidden/i.test(m)) {
-    return "Native host is registered for a different extension ID. Re-run native/install.ps1 with this extension's ID.";
+    return "Helper is installed for a different copy of ComboBreaker. Run the setup again to re-register it.";
   }
   if (/Native host has exited/i.test(m)) {
-    return "Native host exited immediately. Is Node.js on PATH? Check the wrapper .bat in %LOCALAPPDATA%\\ComboBreaker\\native.";
+    return "Helper quit right after starting. Run the setup again to repair it.";
   }
   if (/Error when communicating/i.test(m)) {
-    return "Native host crashed or wrote something that wasn't a framed message.";
+    return "Helper crashed while talking to the extension. Run the setup again to repair it.";
   }
   return m || "unknown error";
 }
@@ -122,6 +151,15 @@ function onHostMessage(msg) {
     }
     return;
   }
+  if (msg.type === "updated") {
+    if (pendingUpdate && (!msg.id || msg.id === pendingUpdate.id)) {
+      clearTimeout(pendingUpdate.timer);
+      pendingUpdate.resolve(msg);
+      pendingUpdate = null;
+    }
+    statusCache = null; // version may have changed
+    return;
+  }
   const id = msg.id != null ? String(msg.id) : null;
   switch (msg.type) {
     case "started":
@@ -129,14 +167,15 @@ function onHostMessage(msg) {
       break;
     case "progress":
       if (id) {
+        const updating = msg.status === "updating";
         updateJob(id, {
-          status: msg.status === "processing" ? "processing" : msg.status === "finished" ? "downloading" : "downloading",
+          status: msg.status === "processing" || updating ? "processing" : "downloading",
           percent: msg.percent != null ? msg.percent : msg.status === "processing" ? 100 : undefined,
           downloaded: msg.downloaded,
           total: msg.total,
           speed: msg.speed,
           eta: msg.eta,
-          stage: msg.stage || null,
+          stage: updating ? "Updating yt-dlp" : msg.stage || null,
           title: msg.title || undefined,
         });
       }
@@ -178,10 +217,11 @@ export async function ytdlpStatus(force = false) {
       hostVersion: pong.version,
       platform: pong.platform,
       node: pong.node,
+      helperDir: pong.helperDir || null,
       ytdlp: pong.ytdlp || null,
       ffmpeg: pong.ffmpeg || null,
       outputDir: pong.outputDir || "",
-      error: pong.ytdlp ? null : "Host connected but yt-dlp was not found. Install it or set its path in options.",
+      error: pong.ytdlp ? null : "Helper is installed but yt-dlp is missing. Run the setup again to repair it.",
     };
   } catch (e) {
     value = { available: false, error: String((e && e.message) || e), ytdlp: null, ffmpeg: null };
@@ -352,6 +392,8 @@ export async function ytdlpDownload({ url, quality, title, tabId, itemId, page, 
   jobs.set(id, job);
   persistJobs();
   broadcast(job, false, true);
+  const { sendCookies, ...hostSettings } = settings;
+  const cookies = sendCookies ? await cookieFileFor(page || url) : "";
   try {
     post({
       type: "download",
@@ -360,7 +402,8 @@ export async function ytdlpDownload({ url, quality, title, tabId, itemId, page, 
       quality: job.quality,
       title: job.title,
       referer: referer || page || "",
-      ...settings,
+      cookies,
+      ...hostSettings,
     });
   } catch (e) {
     updateJob(id, { status: "error", error: String((e && e.message) || e), finishedAt: Date.now() });
@@ -399,6 +442,28 @@ export async function ytdlpClearJobs() {
   for (const [id, j] of jobs) if (!isActive(j)) jobs.delete(id);
   persistJobs();
   return { ok: true };
+}
+
+// Ask the host to run `yt-dlp -U`. Resolves { ok, updated, version, output }.
+export function ytdlpUpdate() {
+  return new Promise((resolve, reject) => {
+    if (pendingUpdate) return reject(new Error("an update is already running"));
+    const id = `u${Date.now().toString(36)}`;
+    const timer = setTimeout(() => {
+      if (pendingUpdate && pendingUpdate.id === id) {
+        pendingUpdate = null;
+        reject(new Error("update timed out"));
+      }
+    }, UPDATE_TIMEOUT_MS);
+    pendingUpdate = { id, resolve, timer };
+    bridgeSettings()
+      .then((s) => post({ type: "update", id, ytdlpPath: s.ytdlpPath }))
+      .catch((e) => {
+        clearTimeout(timer);
+        pendingUpdate = null;
+        reject(e);
+      });
+  });
 }
 
 export function ytdlpCommandFor(url, quality) {
