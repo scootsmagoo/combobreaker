@@ -169,6 +169,20 @@
         </section>
 
         <section class="side-section">
+          <h2>Backup</h2>
+          <div class="backup-actions">
+            <button type="button" id="backup-export" class="ghost-btn">Export settings</button>
+            <button type="button" id="backup-import" class="ghost-btn">Import…</button>
+            <input type="file" id="backup-file" accept="application/json,.json" hidden />
+          </div>
+          <p class="hint">
+            One JSON file with global settings, every site (CSS, JS, headers),
+            snippets and saved tab sessions. Import merges: sites in the file
+            overwrite same-named sites.
+          </p>
+        </section>
+
+        <section class="side-section">
           <div class="side-header">
             <h2>Sites</h2>
             <button id="add-site" class="ghost-btn" title="Add site">+</button>
@@ -203,6 +217,7 @@ body { font-family: 'Iosevka', monospace; }
         </div>
 
         <div id="pane-js" class="pane" hidden>
+          <p class="hint us-status" id="us-status" hidden></p>
           <textarea id="js-area" spellcheck="false" placeholder="// Your JS for this site (runs in the page world)
 console.log('hello from ComboBreaker');
 "></textarea>
@@ -261,9 +276,11 @@ console.log('hello from ComboBreaker');
             </select>
           </label>
           <p class="hint">
-            Storage in use:
-            <code id="storage-bytes">…</code> /
-            <code>~100 KB</code> total in <code>chrome.storage.sync</code>.
+            Synced settings: <code id="storage-bytes">…</code> /
+            <code>~100 KB</code> in <code>chrome.storage.sync</code>.
+            CSS / JS bodies: <code id="storage-bytes-local">…</code> in
+            <code>chrome.storage.local</code> (this device only — use
+            Backup → Export to move them).
           </p>
           <p class="hint">
             JS toggle (block JavaScript on this site) lives in the toolbar

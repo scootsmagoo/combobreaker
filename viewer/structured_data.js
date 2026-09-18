@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   "use strict";
 
   const SESSION_KEY = "combobreaker_structured_data";
@@ -168,7 +168,10 @@
       if (md.itemtypes && md.itemtypes.length > 0) {
         const typesList = document.createElement("div");
         typesList.style.marginTop = "8px";
-        typesList.innerHTML = "<strong>Types:</strong> " + md.itemtypes.join(", ");
+        const strong = document.createElement("strong");
+        strong.textContent = "Types:";
+        // Page-controlled strings: never through innerHTML.
+        typesList.append(strong, " " + md.itemtypes.join(", "));
         microDiv.appendChild(typesList);
       }
     }
@@ -193,7 +196,10 @@
       if (rdfa.typofs && rdfa.typofs.length > 0) {
         const typesList = document.createElement("div");
         typesList.style.marginTop = "8px";
-        typesList.innerHTML = "<strong>Types:</strong> " + rdfa.typofs.join(", ");
+        const strong = document.createElement("strong");
+        strong.textContent = "Types:";
+        // Page-controlled strings: never through innerHTML.
+        typesList.append(strong, " " + rdfa.typofs.join(", "));
         rdfaDiv.appendChild(typesList);
       }
     }

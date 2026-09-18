@@ -19,6 +19,15 @@
   const PREFS_KEY = "json_formatter_prefs";
   const DEFAULT_PREFS = { theme: "auto", view: "tree", level: null };
 
+  // Cheap DOM test first: this runs on every page, and almost none of them
+  // are raw JSON. Don't touch storage unless the page could be.
+  if (!looksLikeRawJson()) return;
+
+  function looksLikeRawJson() {
+    const body = document.body;
+    return !!body && body.children.length === 1 && body.children[0].tagName === "PRE";
+  }
+
   chrome.storage.sync.get(["global", PREFS_KEY], (data) => {
     if (data.global && data.global.jsonFormatterEnabled === false) return;
     const prefs = { ...DEFAULT_PREFS, ...(data[PREFS_KEY] || {}) };
@@ -491,7 +500,7 @@
   function highlightFormatted(value) {
     const text = JSON.stringify(value, null, 2);
     return text.replace(
-      /("(?:\\.|[^"\\])*")(\s*:)?|(\b(?:true|false|null)\b)|(-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?)/g,
+      /("(?:\\.|[^"\\])*")(\s*:)?|(\b(?:true|false|null)\b)|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
       (match, str, colon, kw, num) => {
         if (str) {
           if (colon) return `<span class="cb-key">${escapeHtml(str)}</span>${escapeHtml(colon)}`;

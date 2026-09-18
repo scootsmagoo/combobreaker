@@ -1,8 +1,13 @@
 // Runs at document_start on every page (top frame only, isolated world).
 // Responsibilities:
-//   1. Look up site + global settings from chrome.storage.sync.
+//   1. Look up site + global settings from chrome.storage.sync, and the
+//      site's css/js bodies from chrome.storage.local (see lib/storage.js).
 //   2. Inject per-site user CSS via a <style> on documentElement.
-//   3. Inject per-site user JS via a <script textContent> in the page world.
+//   3. Per-site user JS: normally delivered by chrome.userScripts (see
+//      background/user_scripts.js). When that API is unavailable we ask the
+//      service worker to run it via chrome.scripting in the MAIN world. (An
+//      inline <script> created here does NOT work: MV3 applies the extension's
+//      own CSP to it.)
 //   4. Decide whether dark mode should be on, drop an anti-flash preamble,
 //      and ask the service worker to load Dark Reader into the page world.
 //   5. React to live storage changes (popup / options toggles) without a reload.
@@ -13,7 +18,7 @@
 
   const STYLE_ID_USER = "__cb_user_css__";
   const STYLE_ID_DARK_PREAMBLE = "__cb_dark_preamble__";
-  const SCRIPT_ID_USER = "__cb_user_js__";
+  const USERSCRIPT_SITES_KEY = "cb_userscript_sites";
 
   function siteKey() {
     let host = location.hostname.toLowerCase();
@@ -23,6 +28,10 @@
 
   function siteItemKey(s) {
     return `site:${s}`;
+  }
+
+  function siteCodeKey(s) {
+    return `sitecode:${s}`;
   }
 
   const DEFAULT_SITE = {
@@ -47,17 +56,28 @@
   if (!KEY) return;
 
   let CURRENT_DARK_ON = null;
+  let USER_JS_RAN = false;
 
   installDarkReaderFetchBridge();
   load();
 
   async function load() {
-    const data = await chrome.storage.sync.get([siteItemKey(KEY), "global"]);
-    const site = { ...DEFAULT_SITE, ...(data[siteItemKey(KEY)] || {}) };
+    const [data, local] = await Promise.all([
+      chrome.storage.sync.get([siteItemKey(KEY), "global"]),
+      chrome.storage.local.get([siteCodeKey(KEY), USERSCRIPT_SITES_KEY]),
+    ]);
+    const site = {
+      ...DEFAULT_SITE,
+      ...(data[siteItemKey(KEY)] || {}),
+      ...(local[siteCodeKey(KEY)] || {}),
+    };
     const global = mergeGlobal(data.global);
 
     if (site.cssEnabled && site.css) injectCss(site.css);
-    if (site.jsEnabled && site.js) injectJs(site.js);
+    else removeCss();
+
+    const viaUserScripts = (local[USERSCRIPT_SITES_KEY] || []).includes(KEY);
+    if (site.jsEnabled && site.js && !viaUserScripts) injectJs();
 
     applyDarkMode(effectiveDark(global, site), themeFor(global));
   }
@@ -93,13 +113,16 @@
     style.textContent = css;
   }
 
-  function injectJs(code) {
-    if (document.getElementById(SCRIPT_ID_USER)) return;
-    const script = document.createElement("script");
-    script.id = SCRIPT_ID_USER;
-    script.textContent = `try{\n${code}\n}catch(e){console.error("[ComboBreaker user JS]",e);}`;
-    (document.head || document.documentElement).appendChild(script);
-    script.remove();
+  function removeCss() {
+    const style = document.getElementById(STYLE_ID_USER);
+    if (style) style.remove();
+  }
+
+  // Once per document: load() re-runs on every settings change.
+  function injectJs() {
+    if (USER_JS_RAN) return;
+    USER_JS_RAN = true;
+    chrome.runtime.sendMessage({ type: "run-user-js" }).catch(() => {});
   }
 
   // Anti-flash preamble: paint the document dark immediately so the
@@ -183,9 +206,10 @@
   // Live updates. Popup or options changing storage should immediately
   // reapply without a page reload.
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== "sync") return;
     const touchesUs =
-      changes.global || changes[siteItemKey(KEY)];
+      area === "sync"
+        ? changes.global || changes[siteItemKey(KEY)]
+        : area === "local" && changes[siteCodeKey(KEY)];
     if (touchesUs) load();
   });
 
@@ -195,10 +219,7 @@
     switch (msg.type) {
       case "cb-css-changed":
         if (msg.enabled && msg.css) injectCss(msg.css);
-        else {
-          const s = document.getElementById(STYLE_ID_USER);
-          if (s) s.remove();
-        }
+        else removeCss();
         break;
       case "cb-recompute-dark":
         // Forced re-evaluation (e.g. after schema migration or commands).

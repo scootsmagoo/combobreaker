@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -72,7 +72,8 @@
         <div class="cookies-toolbar">
           <span id="cookies-count" class="muted">—</span>
           <button id="cookies-refresh" class="ghost-btn" title="Refresh">↻</button>
-          <button id="cookies-nuke" class="danger-btn" title="Delete every cookie for this site">Nuke all</button>
+          <button id="cookies-nuke" class="danger-btn" title="Delete every cookie for this site">Nuke cookies</button>
+          <button id="site-data-nuke" class="danger-btn" title="Cookies + localStorage + IndexedDB + Cache Storage + service workers for this site">Nuke all site data</button>
         </div>
         <div id="cookies-list" class="cookies-list">
           <div class="empty muted">Loading…</div>
@@ -217,6 +218,30 @@
 
         <div class="utilities" id="utilities">
           <h4 class="util-heading">Utilities</h4>
+
+          <details class="util" data-util="snippets">
+            <summary><span class="ico">▶</span><span>Snippets (run JS on this page)</span></summary>
+            <div class="util-body">
+              <ul id="snip-list" class="snip-list"></ul>
+              <div class="util-row">
+                <button type="button" class="ghost-btn" id="snip-new">+ New snippet</button>
+              </div>
+              <div id="snip-editor" class="snip-editor" hidden>
+                <label class="util-field">
+                  <span>Name</span>
+                  <input type="text" id="snip-name" spellcheck="false" />
+                </label>
+                <label class="util-field">
+                  <span>Code (runs in the page)</span>
+                  <textarea id="snip-code" rows="7" spellcheck="false"></textarea>
+                </label>
+                <div class="util-row">
+                  <button type="button" class="ghost-btn" id="snip-save">Save</button>
+                  <button type="button" class="ghost-btn" id="snip-cancel">Cancel</button>
+                </div>
+              </div>
+            </div>
+          </details>
 
           <details class="util" data-util="qr">
             <summary><span class="ico">▦</span><span>QR code (current URL)</span></summary>

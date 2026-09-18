@@ -1,6 +1,7 @@
 * { box-sizing: border-box; }
 
 :root {
+  color-scheme: dark; /* dark native scrollbars and form controls */
   --bg: #101420;
   --bg-2: #161b2b;
   --bg-3: #1f2538;
@@ -74,7 +75,10 @@ header {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  /* One row however many tabs there are (was a fixed 6 with 7 tabs). */
+  grid-auto-flow: column;
+  grid-auto-columns: auto;
+  justify-content: space-between;
   background: var(--bg-2);
   border-bottom: 1px solid var(--border);
 }
@@ -82,7 +86,7 @@ header {
   background: transparent;
   border: none;
   color: var(--fg-dim);
-  padding: 9px 4px;
+  padding: 9px 6px;
   font: inherit;
   font-size: 12px;
   cursor: pointer;
@@ -1133,3 +1137,43 @@ dialog button[value="apply"], dialog button[value="save"], dialog button[value="
   font-size: 11px;
   margin: 4px 0 0;
 }
+
+/* Snippets */
+.snip-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.snip-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.snip-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.snip-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+.snip-actions button { padding: 2px 8px; font-size: 11px; }
+.snip-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.snip-editor textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+}
+.snip-editor[hidden] { display: none; }

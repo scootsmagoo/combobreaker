@@ -6,6 +6,7 @@ import {
   listSites,
   deleteSite,
 } from "../lib/storage.js";
+import { exportAll, importAll } from "../lib/backup.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -42,6 +43,8 @@ async function init() {
 
   bindDarkTuneInputs();
   bindDownloads(g);
+  bindBackup();
+  refreshUserScriptsStatus();
 
   await refreshSites();
 
@@ -202,6 +205,11 @@ async function refreshStorageBytes() {
     chrome.storage.sync.getBytesInUse(null, (b) => res(b))
   );
   $("storage-bytes").textContent = formatBytes(bytes);
+  const local = await chrome.storage.local.get(null);
+  const codeBytes = Object.keys(local)
+    .filter((k) => k.startsWith("sitecode:"))
+    .reduce((n, k) => n + new Blob([JSON.stringify(local[k])]).size, 0);
+  $("storage-bytes-local").textContent = formatBytes(codeBytes);
 }
 
 function formatBytes(b) {
@@ -213,13 +221,12 @@ async function saveActive() {
   if (!STATE.activeSite) return;
   const enabled = $("enabled-toggle").checked;
   const patch = {};
-  if (STATE.activeTab === "css") {
-    patch.css = $("css-area").value;
-    patch.cssEnabled = enabled;
-  } else if (STATE.activeTab === "js") {
-    patch.js = $("js-area").value;
-    patch.jsEnabled = enabled;
-  }
+  // Both bodies are saved whichever tab is showing, so an edit on the other
+  // tab isn't silently dropped. The enable toggle belongs to the active tab.
+  patch.css = $("css-area").value;
+  patch.js = $("js-area").value;
+  if (STATE.activeTab === "css") patch.cssEnabled = enabled;
+  else if (STATE.activeTab === "js") patch.jsEnabled = enabled;
   const meta = $("meta-dark").value;
   patch.darkMode = meta === "on" || meta === "off" ? meta : null;
   const mo = $("meta-overlay").value;
@@ -285,6 +292,52 @@ async function deleteActive() {
   chrome.runtime
     .sendMessage({ type: "apply-site-headers", siteKey: removedSite })
     .catch(() => {});
+}
+
+// ─────────────────── Backup / userScripts status ───────────────────
+
+function bindBackup() {
+  $("backup-export").addEventListener("click", async () => {
+    const data = await exportAll();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `combobreaker-backup-${data.exportedAt.slice(0, 10)}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast(`Exported ${Object.keys(data.sites).length} site(s)`, "ok");
+  });
+  $("backup-import").addEventListener("click", () => $("backup-file").click());
+  $("backup-file").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const res = await importAll(JSON.parse(await file.text()));
+      for (const siteKey of res.sites) {
+        chrome.runtime.sendMessage({ type: "apply-site-headers", siteKey }).catch(() => {});
+      }
+      chrome.runtime.sendMessage({ type: "apply-adblock" }).catch(() => {});
+      toast(`Imported ${res.sites.length} site(s) — reloading`, "ok");
+      setTimeout(() => location.reload(), 900);
+    } catch (err) {
+      toast(`Import failed: ${err.message || err}`, "err");
+    }
+  });
+}
+
+async function refreshUserScriptsStatus() {
+  const el = $("us-status");
+  let available = false;
+  try {
+    const r = await chrome.runtime.sendMessage({ type: "userscripts-status" });
+    available = !!(r && r.ok && r.result.available);
+  } catch {}
+  el.hidden = false;
+  el.textContent = available
+    ? "Runs through chrome.userScripts: works even on sites with a strict Content-Security-Policy."
+    : "Heads-up: \"Allow User Scripts\" is off for ComboBreaker (chrome://extensions → Details). Your JS still runs, but slightly later and not on sites with a strict Content-Security-Policy (GitHub, X, banks). Turn the switch on for full coverage.";
+  el.classList.toggle("warn", !available);
 }
 
 // ─────────────────── Header rules editor ───────────────────

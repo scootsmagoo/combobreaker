@@ -1,4 +1,4 @@
-﻿# ComboBreaker
+# ComboBreaker
 
 > One Chrome extension to replace a dozen sketchy ones.
 
@@ -14,7 +14,8 @@ Inspired by the spirit of [@levelsio's combo-extension thread](https://x.com/lev
 |---|---|
 | **Per-site JS toggle** | Disable JavaScript on a domain via `chrome.contentSettings`. Survives reloads. |
 | **Per-site custom CSS** | A small Stylus-style editor; CSS is injected at `document_start` only on the matching site. |
-| **Per-site custom JS** | Inject your own scripts on a domain (no `GM_*` API; just raw script in MAIN world). |
+| **Per-site custom JS** | Run your own script on a domain, in the page's MAIN world (no `GM_*` API). Delivered through `chrome.userScripts`, which works even on strict-CSP sites — turn on **Allow User Scripts** for ComboBreaker at `chrome://extensions` → Details. Without that switch it falls back to `chrome.scripting`, which runs slightly later and is subject to the page's CSP. |
+| **Snippets** | **Tools → Snippets**: named JS blobs you run on the current tab with one click (the bookmarklet use case). Ships with table→CSV, un-stick fixed overlays, and re-enable text selection. |
 | **Dark mode** | Powered by [Dark Reader](https://darkreader.org/) (vendored, MIT). Global on/off plus per-site overrides (auto / always-on / always-off). Brightness / contrast / sepia / grayscale / mode sliders in the popup and options. |
 | **Color picker** | Native `EyeDropper` API — one click, hex copied to clipboard. |
 | **Pixel ruler** | On-page draggable ruler overlay. |
@@ -25,10 +26,11 @@ Inspired by the spirit of [@levelsio's combo-extension thread](https://x.com/lev
 | **Reader view** | **Browse** tab: extract the main article with [Mozilla Readability](https://github.com/mozilla/readability) and open a clean **reader** tab. Optional **Copy as Markdown** uses [Turndown](https://github.com/mixmark-io/turndown) for notes or LLM workflows. Vendored under `vendor/`. |
 | **Structured data (JSON-LD)** | **Browse** → **View structured data**: list every `<script type="application/ld+json">` block, summarize `@type`, pretty-print, copy, heuristic notes, microdata and RDFa summaries, and **links to Google’s Rich Results Test and the Schema.org validator** for the current tab URL. Includes a small **JSON-LD builder** (common types) to generate and copy markup — all local; optional validator links are the only use of the network. |
 | **Encoding override** | Manually set character encoding for legacy/garbled pages. |
-| **Cookies, headers, redirects** | **Cookies** tab: list, edit, or delete cookies for the current site. **Headers** tab: recent response header captures plus quick link to your request/response **header overrides** in options. **Redirects** tab: redirect chain for the current tab, copy, clear. |
+| **Cookies, headers, redirects** | **Cookies** tab: list, edit, or delete cookies for the current site, plus **Nuke all site data** (cookies, localStorage, IndexedDB, Cache Storage, service workers — DevTools' “Clear site data” in one click). **Headers** tab: recent response header captures plus quick link to your request/response **header overrides** in options. **Redirects** tab: redirect chain for the current tab, copy, clear. |
 | **Browse tools** | **Viewport / User-Agent** presets (resize window + optional UA for this site via DNR), **tab session** save/restore, **find duplicate** URLs and close extras, and **skip cache** for the current tab’s requests while the popup is open (see service worker for details). |
 | **Utility belt** | Tucked into the **Tools** tab — JWT decoder, encoder/decoder (Base64 / Base64-URL / URL / hex / HTML entity), regex tester with live highlights, Unix-timestamp ↔ ISO-date converter, color converter (hex / rgb / hsl / oklch) with WCAG contrast checker, line/word diff viewer, fake data + lorem-ipsum generator, password / UUID generator, and a locally rendered QR code for the current URL. Each tool is a `<details>` collapsible — open only what you need. Client-side only; no network. |
-| **Kagi search** | Sets Kagi as your default search provider on install. |
+| **Kagi search** | Sets Kagi as your default search provider on install. Chrome only lets a manifest declare this, so it can't be toggled at runtime — decline Chrome's prompt, or delete `chrome_settings_overrides` from `manifest.json`, if you don't want it. |
+| **Backup** | Options → **Backup**: export / import every setting (global, per-site CSS/JS/headers, snippets, tab sessions) as one JSON file. |
 | **Basic adblock** | Static `declarativeNetRequest` ruleset blocking common ad/tracker domains. |
 
 ## Install (developer mode)
@@ -66,6 +68,29 @@ Rule of thumb for what needs reloading:
 - **Options page**: right-click the extension icon → **Options**, then DevTools as normal.
 - **Errors**: the extension card on `chrome://extensions` shows an **Errors** button in red if anything throws. Click it for stack traces.
 
+### Checks
+
+The extension has no build step and no runtime dependencies; `package.json` only holds dev tooling.
+
+```
+npm install
+npm run check    # manifest references, DNR rule ids, import paths, UTF-8/no-BOM
+npm run lint     # ESLint
+npm test         # node:test unit tests (storage split + migrations, backup, site helpers)
+npm run pack     # dist/combobreaker-<version>.zip with only runtime files
+```
+
+Browser smoke tests (need `npm i --no-save puppeteer-core` and a local Chrome):
+
+```
+node scripts/smoke_site.js      # per-site CSS/JS, userScripts + fallback, snippets, site-data nuke, backup
+node scripts/smoke_overlay.js   # download badge on a local page and on YouTube
+```
+
+CI (`.github/workflows/ci.yml`) runs check, lint, test and pack on every push.
+
+Source files are UTF-8 without BOM, LF line endings (`.editorconfig`, `.gitattributes`).
+
 ## Keyboard shortcuts
 
 | Shortcut | Action |
@@ -99,11 +124,15 @@ tools/                        On-demand: color picker, ruler, whatfont
 viewer/                       hls_downloader, reader, structured_data
 vendor/                       Dark Reader, qrcode-generator, Readability, Turndown
 rules/                        declarativeNetRequest static rules
-lib/                          storage + site URL helpers
+background/user_scripts.js    Per-site JS + snippets via chrome.userScripts (scripting fallback)
+popup/snippets.js             Snippets library UI
+lib/                          storage (sync/local split, migrations), backup, site URL helpers
+test/                         node:test unit tests (fake chrome.storage)
+scripts/                      check_manifest, pack, icon build, puppeteer smoke tests
 icons/                        PNG icons
 ```
 
-All settings you change in the UI live in `chrome.storage.sync` (except a few per-window/session bits noted in the code) so they follow your Chrome profile.
+Small settings live in `chrome.storage.sync` so they follow your Chrome profile. Per-site CSS/JS bodies live in `chrome.storage.local` (`sitecode:<host>`) because sync caps each item at ~8 KB; they stay on this device, so use Options → Backup to move them. Snippets, tab sessions and DNR bookkeeping are also local; per-tab captures (redirects, headers, media) are in `chrome.storage.session`.
 
 ### Video downloader
 

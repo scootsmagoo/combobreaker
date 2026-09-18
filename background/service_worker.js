@@ -7,7 +7,7 @@ import {
   listSites,
   effectiveDarkModeFor,
 } from "../lib/storage.js";
-import { siteKeyFromUrl, originPatternForSite } from "../lib/site.js";
+import { siteKeyFromUrl, originPatternForSite, hostsForSite } from "../lib/site.js";
 import {
   ytdlpStatus,
   ytdlpDownload,
@@ -17,18 +17,24 @@ import {
   ytdlpClearJobs,
   ytdlpCommandFor,
 } from "./ytdlp_bridge.js";
+import {
+  syncUserScripts,
+  watchUserScripts,
+  userScriptsAvailable,
+  runUserJsFallback,
+  runCodeInTab,
+} from "./user_scripts.js";
 
-chrome.runtime.onInstalled.addListener(async () => {
+async function boot() {
   await ensureSchema();
   await applyAdblockState();
   await reapplyAllHeaderRules();
-});
+  await syncUserScripts();
+}
 
-chrome.runtime.onStartup.addListener(async () => {
-  await ensureSchema();
-  await applyAdblockState();
-  await reapplyAllHeaderRules();
-});
+chrome.runtime.onInstalled.addListener(boot);
+chrome.runtime.onStartup.addListener(boot);
+watchUserScripts();
 
 // ---------- Message router ----------
 
@@ -115,6 +121,16 @@ async function handleMessage(msg, sender) {
       return await ytdlpJobs();
     case "ytdlp-clear-jobs":
       return await ytdlpClearJobs();
+    case "run-snippet":
+      return await runCodeInTab(msg.tabId, msg.code);
+    case "nuke-site-data":
+      return await nukeSiteData(msg.siteKey, msg.tabUrl);
+    case "run-user-js":
+      return await runUserJsFallback(sender);
+    case "userscripts-status":
+      // Also re-syncs, so flipping "Allow User Scripts" takes effect as soon
+      // as the options page is opened.
+      return { ...(await syncUserScripts()), available: userScriptsAvailable() };
     case "open-options":
       return await openOptionsSection(msg.section);
     case "overlay-list-all":
@@ -523,6 +539,33 @@ async function applyAdblockState() {
     ],
   });
   return { adblockEnabled };
+}
+
+// ---------- Site data nuke ----------
+
+async function nukeSiteData(siteKey, tabUrl) {
+  const origins = new Set();
+  try {
+    const u = new URL(tabUrl);
+    if (/^https?:$/.test(u.protocol)) origins.add(u.origin);
+  } catch {}
+  for (const host of hostsForSite(siteKey)) {
+    origins.add(`https://${host}`);
+    origins.add(`http://${host}`);
+  }
+  if (!origins.size) throw new Error("no http(s) origin for this tab");
+  await chrome.browsingData.remove(
+    { origins: [...origins] },
+    {
+      cookies: true,
+      localStorage: true,
+      indexedDB: true,
+      cacheStorage: true,
+      serviceWorkers: true,
+      fileSystems: true,
+    }
+  );
+  return { origins: [...origins] };
 }
 
 // ---------- Redirect tracer ----------
@@ -1257,7 +1300,7 @@ async function extractStructuredDataForTab(tabIdOverride) {
       if (typeof globalThis === "undefined" || typeof globalThis.__cbExtractStructuredData !== "function") {
         return {
           ok: false,
-          error: "Schema extractor missing — globalThis.__cbExtractStructuredData is not a function",
+          error: "Schema extractor missing â€” globalThis.__cbExtractStructuredData is not a function",
         };
       }
       return globalThis.__cbExtractStructuredData();

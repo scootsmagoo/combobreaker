@@ -430,3 +430,20 @@ header a { color: var(--accent); }
   background: var(--bg-3); border: 1px solid var(--border); border-radius: 4px;
 }
 .bridge-fields .field input[type="text"]:focus, .bridge-fields .field select:focus { outline: none; border-color: var(--accent); }
+
+/* Backup + userScripts status */
+.backup-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.us-status {
+  margin: 0;
+  padding: 8px 12px;
+}
+.us-status.warn {
+  color: #e0a040;
+}
+#pane-js {
+  flex-direction: column;
+}

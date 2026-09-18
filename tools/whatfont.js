@@ -83,7 +83,7 @@
       <div style="font-size:11px;color:#98a0b8;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;">
         &lt;${target.tagName.toLowerCase()}&gt;
       </div>
-      <div style="font-family:${family};font-size:18px;font-weight:${weight};margin-bottom:8px;color:${color};">
+      <div data-cb-sample style="font-size:18px;margin-bottom:8px;">
         ${escapeHtml(ff || "Sans")}
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -94,6 +94,12 @@
         ${row("letter-spacing", ls)}
         ${row("color", color)}
       </table>`;
+    // Set via the DOM, not the template: a quoted family ("Helvetica Neue")
+    // would otherwise terminate the style attribute.
+    const sample = card.querySelector("[data-cb-sample]");
+    sample.style.fontFamily = family;
+    sample.style.fontWeight = weight;
+    sample.style.color = color;
 
     const cardW = 320;
     const cardH = card.offsetHeight || 180;

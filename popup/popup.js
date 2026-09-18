@@ -1,6 +1,7 @@
-﻿import { siteKeyFromUrl, prettySite } from "../lib/site.js";
+import { siteKeyFromUrl, prettySite } from "../lib/site.js";
 import { getGlobal, setGlobal } from "../lib/storage.js";
 import { initUtilities } from "./utilities.js";
+import { initSnippets } from "./snippets.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -50,6 +51,7 @@ async function init() {
   bindToolsPane();
   bindDialogs();
   initUtilities({ tab: STATE.tab, status });
+  initSnippets({ tab: STATE.tab, status, sendMessage });
   if (STATE.tab && STATE.tab.id != null) {
     try {
       const bp = chrome.runtime.connect({ name: "browsing-popup" });
@@ -248,6 +250,7 @@ let COOKIES_CACHE = [];
 function bindCookiesPane() {
   $("cookies-refresh").addEventListener("click", () => loadCookies(true));
   $("cookies-nuke").addEventListener("click", nukeCookies);
+  $("site-data-nuke").addEventListener("click", nukeSiteData);
 }
 
 async function loadCookies(force = false) {
@@ -377,6 +380,21 @@ async function nukeCookies() {
     }
   }
   status(`Nuked ${ok} cookie${ok === 1 ? "" : "s"}${fail ? `, ${fail} failed` : ""}`, fail ? "err" : "ok");
+  loadCookies(true);
+}
+
+// Everything DevTools → Application → "Clear site data" does, in one click.
+async function nukeSiteData() {
+  if (!STATE.siteKey || !STATE.tab) return;
+  if (!confirm(`Clear ALL stored data for ${STATE.siteKey}?
+
+Cookies, localStorage, IndexedDB, Cache Storage and service workers. You will be logged out.`)) return;
+  try {
+    const res = await sendMessage({ type: "nuke-site-data", siteKey: STATE.siteKey, tabUrl: STATE.tab.url });
+    status(`Cleared site data for ${res.origins.length} origin(s). Reload the page.`, "ok");
+  } catch (e) {
+    status(String(e.message || e), "err");
+  }
   loadCookies(true);
 }
 
@@ -529,7 +547,7 @@ function renderOverrideSummary(settings) {
   const parts = [];
   if (req) parts.push(`${req} request override${req === 1 ? "" : "s"}`);
   if (res) parts.push(`${res} response override${res === 1 ? "" : "s"}`);
-  el.textContent = parts.join(" Â· ") + " active.";
+  el.textContent = parts.join(" · ") + " active.";
 }
 
 //  Redirects pane 
@@ -677,14 +695,6 @@ async function copyRedirects() {
 
 //  Media pane
 
-const YT_HOSTS = new Set([
-  "youtube.com",
-  "m.youtube.com",
-  "music.youtube.com",
-  "youtube-nocookie.com",
-  "youtu.be",
-]);
-
 const QUALITY_PRESETS = [
   ["best", "Best"],
   ["1080", "1080p"],
@@ -700,17 +710,6 @@ const MEDIA = {
   overlaySite: null, // true | false | null
   overlayGlobal: true,
 };
-
-function isYouTubeTab() {
-  if (!STATE.tab || !STATE.tab.url) return false;
-  try {
-    let host = new URL(STATE.tab.url).hostname.toLowerCase();
-    if (host.startsWith("www.")) host = host.slice(4);
-    return YT_HOSTS.has(host);
-  } catch {
-    return false;
-  }
-}
 
 function bindMediaPane() {
   $("media-refresh").addEventListener("click", async () => {
@@ -1551,7 +1550,7 @@ function loadBrowse() {
         const c = (s.entries && s.entries.length) || 0;
         li.innerHTML = `<div class="browse-session-head"><span class="browse-session-name">${escapeHtml(
           n
-        )}</span> <span class="browse-sub muted">${c} tab${c === 1 ? "" : "s"} Â· ${escapeHtml(
+        )}</span> <span class="browse-sub muted">${c} tab${c === 1 ? "" : "s"} · ${escapeHtml(
           when
         )}</span></div>
         <div class="browse-session-actions">

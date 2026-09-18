@@ -114,7 +114,6 @@ async function main() {
     await page.screenshot({ path: path.join(OUT, "generic_hover2.png") });
 
     // ask the content script for its item list through the SW (like the popup does)
-    const pages = await browser.pages();
     const tabIdInfo = await sw.evaluate(async (url) => {
       const tabs = await chrome.tabs.query({ url });
       const tab = tabs[0];

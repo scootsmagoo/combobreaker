@@ -19,7 +19,6 @@ const COLORS = {
 
 function makePixels(size) {
   const px = new Uint8Array(size * size * 4);
-  const r = size / 2;
   const cx = (size - 1) / 2;
   const cy = (size - 1) / 2;
   const radius = size * 0.46;

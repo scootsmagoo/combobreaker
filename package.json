@@ -1,0 +1,17 @@
+{
+  "name": "combobreaker",
+  "private": true,
+  "description": "Dev tooling for the ComboBreaker extension. The extension itself has no build step and no runtime dependencies.",
+  "scripts": {
+    "test": "node --test",
+    "lint": "eslint .",
+    "check": "node scripts/check_manifest.cjs",
+    "pack": "node scripts/pack.cjs",
+    "smoke": "node scripts/smoke_overlay.js"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0"
+  }
+}
