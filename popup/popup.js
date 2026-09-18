@@ -734,7 +734,7 @@ function bindMediaPane() {
   });
   $("media-ytdlp").addEventListener("click", copyYtDlp);
   $("bridge-setup").addEventListener("click", () => {
-    sendMessage({ type: "open-options", section: "downloads" }).catch(() => {});
+    sendMessage({ type: "open-helper-setup" }).catch(() => {});
     window.close();
   });
   $("bridge-recheck").addEventListener("click", () => checkBridge(true));
@@ -811,7 +811,7 @@ async function checkBridge(force) {
   const setup = $("bridge-setup");
   if (force) {
     dot.className = "bridge-dot";
-    text.textContent = "Checking yt-dlp bridge…";
+    text.textContent = "Checking the Helper…";
   }
   try {
     MEDIA.bridge = await sendMessage({ type: "ytdlp-status", force: !!force });
@@ -823,17 +823,19 @@ async function checkBridge(force) {
     dot.className = `bridge-dot ${b.ffmpeg ? "ok" : "warn"}`;
     text.innerHTML = "";
     const strong = document.createElement("strong");
-    strong.textContent = `yt-dlp ${b.ytdlp && b.ytdlp.version ? b.ytdlp.version : ""}`.trim();
+    strong.textContent = "Helper connected";
     text.appendChild(strong);
-    text.appendChild(document.createTextNode(b.ffmpeg ? ` · ffmpeg ${b.ffmpeg.version || ""}` : " · ffmpeg missing (no audio merge)"));
-    text.title = [b.ytdlp && b.ytdlp.path, b.ffmpeg && b.ffmpeg.path, b.outputDir && `→ ${b.outputDir}`]
+    text.appendChild(document.createTextNode(` · yt-dlp ${b.ytdlp && b.ytdlp.version ? b.ytdlp.version : ""}`.trimEnd() + (b.ffmpeg ? "" : " · ffmpeg missing")));
+    text.title = [b.ytdlp && (b.ytdlp.display || b.ytdlp.path), b.ffmpeg && b.ffmpeg.path, b.outputDir && `→ ${b.outputDir}`]
       .filter(Boolean)
       .join("\n");
     setup.hidden = true;
   } else {
+    const notInstalled = /not installed/i.test(b.error || "");
     dot.className = "bridge-dot err";
-    text.textContent = `yt-dlp bridge: ${b.error || "not installed"}`;
+    text.textContent = notInstalled ? "Helper not set up · needed for YouTube" : `Helper: ${b.error || "not installed"}`;
     text.title = b.error || "";
+    setup.textContent = notInstalled ? "Set up" : "Repair";
     setup.hidden = false;
   }
   if (MEDIA.items.length) renderVideos();
@@ -929,7 +931,7 @@ function renderVideoRow(it) {
   if (it.gif) meta.appendChild(badge("GIF"));
   const kinds = [...new Set((it.sources || []).map((s) => s.kind))].filter((k) => k !== "ytdlp");
   for (const k of kinds.slice(0, 3)) meta.appendChild(badge(k.toUpperCase()));
-  if (!kinds.length) meta.appendChild(badge("yt-dlp"));
+  if (!kinds.length) meta.appendChild(badge("via Helper"));
   info.appendChild(meta);
   row.appendChild(info);
 
@@ -989,14 +991,14 @@ function renderVideoRow(it) {
   } else if (ytd) {
     const cp = document.createElement("button");
     cp.className = "media-btn primary";
-    cp.textContent = "Copy yt-dlp";
-    cp.title = "Bridge not installed: copies a yt-dlp command for this video";
+    cp.textContent = "Set up ↗";
+    cp.title = "One-time setup: this site needs the ComboBreaker Helper";
     cp.addEventListener("click", async () => {
       try {
-        await navigator.clipboard.writeText(`yt-dlp "${ytd.url}"`);
-        status("yt-dlp command copied", "ok");
+        await sendMessage({ type: "open-helper-setup" });
+        window.close();
       } catch (e) {
-        status(`Copy failed: ${e.message}`, "err");
+        status(`Couldn't open setup: ${e.message}`, "err");
       }
     });
     actions.appendChild(cp);
@@ -1060,8 +1062,8 @@ async function overlayDownloadFromPopup(it, source, quality) {
     const bridgeOk = !!(MEDIA.bridge && MEDIA.bridge.available);
     if (!bridgeOk) {
       if (source.kind === "hls") return openHlsDownloader({ url: source.url, title: it.title });
-      await navigator.clipboard.writeText(`yt-dlp "${source.url}"`);
-      status("Bridge not installed: yt-dlp command copied", "ok");
+      await sendMessage({ type: "open-helper-setup" });
+      window.close();
       return;
     }
     const job = await sendMessage({
@@ -1081,7 +1083,7 @@ async function overlayDownloadFromPopup(it, source, quality) {
       renderJobs();
       renderVideoProgress();
     }
-    status("yt-dlp started", "ok");
+    status("Download started", "ok");
   } catch (e) {
     status(`Download failed: ${e.message}`, "err");
   }
@@ -1312,8 +1314,8 @@ function renderMediaItem(it) {
     if (bridgeOk) {
       const dl = document.createElement("button");
       dl.className = "media-btn primary";
-      dl.textContent = "yt-dlp";
-      dl.title = "Download this stream through the yt-dlp bridge";
+      dl.textContent = "Download";
+      dl.title = "Download this stream through the Helper";
       dl.addEventListener("click", () =>
         overlayDownloadFromPopup(
           { id: `raw:${it.url}`, title: it.title || (STATE.tab && STATE.tab.title) || "", page: STATE.tab.url },
@@ -1335,7 +1337,7 @@ function renderMediaItem(it) {
       note.className = "media-btn";
       note.textContent = "DASH";
       note.disabled = true;
-      note.title = "DASH (.mpd) needs the yt-dlp bridge.";
+      note.title = "DASH (.mpd) needs the Helper (set it up above).";
       actions.appendChild(note);
     }
   } else {

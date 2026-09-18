@@ -15,7 +15,7 @@ import {
   ytdlpReveal,
   ytdlpJobs,
   ytdlpClearJobs,
-  ytdlpCommandFor,
+  ytdlpUpdate,
 } from "./ytdlp_bridge.js";
 import {
   syncUserScripts,
@@ -24,6 +24,7 @@ import {
   runUserJsFallback,
   runCodeInTab,
 } from "./user_scripts.js";
+import { downloadWindowsInstaller } from "./helper_installer.js";
 
 async function boot() {
   await ensureSchema();
@@ -131,6 +132,12 @@ async function handleMessage(msg, sender) {
       // Also re-syncs, so flipping "Allow User Scripts" takes effect as soon
       // as the options page is opened.
       return { ...(await syncUserScripts()), available: userScriptsAvailable() };
+    case "ytdlp-update":
+      return await ytdlpUpdate();
+    case "open-helper-setup":
+      return await openHelperSetup();
+    case "helper-installer-download":
+      return await downloadWindowsInstaller();
     case "open-options":
       return await openOptionsSection(msg.section);
     case "overlay-list-all":
@@ -1055,11 +1062,25 @@ async function overlayDownload(msg, sender) {
     return { mode: "hls-page" };
   }
 
+  // YouTube / DASH without the helper: the page shows a one-time setup prompt.
   return {
-    mode: "copy",
-    cmd: ytdlpCommandFor(source.url, quality),
-    reason: source.kind === "dash" ? "DASH needs yt-dlp." : status.error || "yt-dlp bridge not installed.",
+    mode: "needs-helper",
+    reason: status.error || "Helper not installed.",
+    installed: !/not installed/i.test(status.error || ""),
   };
+}
+
+async function openHelperSetup() {
+  const url = chrome.runtime.getURL("viewer/helper_setup.html");
+  // Reuse an open setup tab instead of stacking them.
+  const open = await chrome.tabs.query({ url });
+  if (open.length) {
+    await chrome.tabs.update(open[0].id, { active: true });
+    try { await chrome.windows.update(open[0].windowId, { focused: true }); } catch {}
+    return { tabId: open[0].id };
+  }
+  const tab = await chrome.tabs.create({ url });
+  return { tabId: tab.id };
 }
 
 // Collect badge items from every frame of a tab. chrome.scripting runs in the

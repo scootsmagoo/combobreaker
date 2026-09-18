@@ -13,13 +13,22 @@
 //     -> { type: "pong", version, platform, ytdlp: {path, version}|null,
 //          ffmpeg: {path, version}|null, outputDir }
 //   { type: "download", id, url, quality, outputDir?, ytdlpPath?, ffmpegPath?,
-//     preferMp4?, extraArgs?, cookiesFromBrowser?, referer? }
+//     preferMp4?, extraArgs?, cookiesFromBrowser?, cookies? (Netscape text), referer? }
 //     -> { type: "started", id, ... }
 //        { type: "progress", id, status, percent, downloaded, total, speed, eta }
 //        ... then { type: "done", id, filepath } | { type: "error", id, message }
 //   { type: "cancel", id }            -> { type: "cancelled", id }
 //   { type: "reveal", path }          -> { type: "ok" }
 //   { type: "log-tail", id }          -> { type: "log", id, lines }
+//   { type: "update", id }            -> { type: "updated", id, ok, version, output }
+//
+// Tool lookup order: explicit path from the extension's options, then the
+// ComboBreaker Helper bundle (CB_HELPER_DIR, set by the wrapper the installer
+// writes: a private Python + yt-dlp zip build and a static ffmpeg), then PATH
+// and the usual per-platform install locations.
+//
+// When a download fails in a way that smells like YouTube changed something,
+// the host runs yt-dlp's self-update once and retries the job.
 //
 // No network calls of its own; it only spawns yt-dlp.
 
@@ -30,7 +39,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
-const HOST_VERSION = "1.0.0";
+const HOST_VERSION = "1.2.0";
 const IS_WIN = process.platform === "win32";
 const IS_MAC = process.platform === "darwin";
 
@@ -86,7 +95,12 @@ function writeFrame(json) {
 const jobs = new Map(); // id -> { child, log: string[], done: boolean }
 
 function shutdown() {
-  for (const [, job] of jobs) killJob(job);
+  for (const [, job] of jobs) {
+    killJob(job);
+    if (job.cookieFile) {
+      try { fs.unlinkSync(job.cookieFile); } catch {}
+    }
+  }
   process.exit(0);
 }
 
@@ -148,6 +162,43 @@ function candidatePaths(name) {
   return list;
 }
 
+function helperDir() {
+  const env = process.env.CB_HELPER_DIR;
+  if (env && fs.existsSync(env)) return env;
+  const home = os.homedir();
+  const candidates = IS_WIN
+    ? [path.join(process.env.LOCALAPPDATA || path.join(home, "AppData", "Local"), "ComboBreaker", "helper")]
+    : IS_MAC
+      ? [path.join(home, "Library", "Application Support", "ComboBreaker", "helper")]
+      : [path.join(process.env.XDG_DATA_HOME || path.join(home, ".local", "share"), "combobreaker", "helper")];
+  return candidates.find((d) => fs.existsSync(d)) || "";
+}
+
+// The bundle the installer lays down: python/ + yt-dlp.pyz + bin/ffmpeg.
+function helperTool(name) {
+  const dir = helperDir();
+  if (!dir) return null;
+  if (name === "yt-dlp") {
+    const pyz = path.join(dir, "yt-dlp.pyz");
+    const py = IS_WIN ? path.join(dir, "python", "python.exe") : path.join(dir, "python", "bin", "python3");
+    if (!fs.existsSync(pyz) || !fs.existsSync(py)) return null;
+    const v = readVersion(py, [pyz, "--version"]);
+    return v == null ? null : { path: py, args: [pyz], version: v, helper: true, display: pyz };
+  }
+  if (name === "ffmpeg") {
+    const p = path.join(dir, "bin", IS_WIN ? "ffmpeg.exe" : "ffmpeg");
+    if (!fs.existsSync(p)) return null;
+    const v = readVersion(p, ["-version"]);
+    return v == null ? null : { path: p, version: v, helper: true };
+  }
+  return null;
+}
+
+// Executable + leading args for a tool record.
+function toolExec(tool) {
+  return { cmd: tool.path, prefix: Array.isArray(tool.args) ? tool.args : [] };
+}
+
 function findTool(name, override) {
   const key = `${name}|${override || ""}`;
   if (toolCache.has(key)) return toolCache.get(key);
@@ -169,6 +220,7 @@ function findTool(name, override) {
       }
     }
   }
+  if (!found) found = helperTool(name);
   if (!found) {
     for (const p of whichAll(name)) {
       found = tryPath(p);
@@ -187,7 +239,7 @@ function findTool(name, override) {
     for (const py of ["python", "python3", "py"]) {
       const r = safeSpawnSync(py, ["-m", "yt_dlp", "--version"]);
       if (r && r.status === 0 && r.stdout.trim()) {
-        found = { path: `${py} -m yt_dlp`, version: r.stdout.trim().split(/\r?\n/)[0], viaPython: py };
+        found = { path: py, args: ["-m", "yt_dlp"], version: r.stdout.trim().split(/\r?\n/)[0], display: `${py} -m yt_dlp` };
         break;
       }
     }
@@ -198,9 +250,9 @@ function findTool(name, override) {
   return found;
 }
 
-function safeSpawnSync(cmd, args) {
+function safeSpawnSync(cmd, args, timeout = 60000) {
   try {
-    return spawnSync(cmd, args, { encoding: "utf8", timeout: 15000, windowsHide: true });
+    return spawnSync(cmd, args, { encoding: "utf8", timeout, windowsHide: true });
   } catch {
     return null;
   }
@@ -235,6 +287,8 @@ async function handle(msg) {
       const job = jobs.get(String(msg.id));
       return send({ type: "log", id: msg.id, lines: job ? job.log.slice(-60) : [] });
     }
+    case "update":
+      return handleUpdate(msg);
     default:
       return send({ type: "error", id: msg && msg.id, message: `unknown type ${msg && msg.type}` });
   }
@@ -244,15 +298,99 @@ function handlePing(msg) {
   if (msg.force) toolCache.clear();
   const ytdlp = findTool("yt-dlp", msg.ytdlpPath);
   const ffmpeg = findTool("ffmpeg", msg.ffmpegPath);
+  // Before the pong: a blocking pipe write hands the CPU to the reader, and a
+  // client that exits on the pong (the smoke test) would otherwise beat the
+  // marker write below.
+  maybeAutoUpdate(ytdlp);
   send({
     type: "pong",
     version: HOST_VERSION,
     platform: process.platform,
     node: process.version,
+    helperDir: helperDir() || null,
     ytdlp,
     ffmpeg,
     outputDir: (msg.outputDir && msg.outputDir.trim()) || defaultOutputDir(),
   });
+}
+
+// ---------- yt-dlp self-update ----------
+
+// Once a day, after answering a ping, run `yt-dlp -U` in the background so
+// YouTube breakage is usually fixed before anyone hits it. Only for the
+// bundled copy (a Homebrew/pip yt-dlp is the user's to update), never while
+// a download is running (Windows can't swap a zip that's open).
+const AUTO_UPDATE_EVERY_MS = 24 * 60 * 60 * 1000;
+let autoUpdateStarted = false;
+
+function maybeAutoUpdate(ytdlp) {
+  if (autoUpdateStarted || !ytdlp || !ytdlp.helper) return;
+  if (jobs.size) return;
+  const dir = helperDir();
+  if (!dir) return;
+  const marker = path.join(dir, ".last-update-check");
+  try {
+    const st = fs.statSync(marker);
+    if (Date.now() - st.mtimeMs < AUTO_UPDATE_EVERY_MS) return;
+  } catch {}
+  autoUpdateStarted = true;
+  try {
+    fs.writeFileSync(marker, new Date().toISOString());
+  } catch {}
+  runUpdate(ytdlp).then((r) => {
+    send({ type: "updated", auto: true, ok: r.ok, updated: r.updated, version: r.version, output: r.output });
+  });
+}
+
+// Errors that a newer yt-dlp usually fixes (YouTube changed its player or
+// signing scheme). Anything else (network, private video, disk full) is not
+// worth an update round-trip.
+const UPDATE_WORTHY = /unable to extract|extract(?:ion|or) (?:failed|error)|nsig|n challenge|please report this issue|requested format is not available|http error 403|update to the latest version|yt-dlp -U|signature/i;
+// ...and errors no update can fix, which win over the list above.
+const NOT_FIXABLE = /sign in to confirm|not a bot|private video|members-only|login required|age.restricted|confirm your age|video unavailable|has been removed|no space left|permission denied|unable to download webpage|timed out|urlopen error|name or service not known|nodename nor servname/i;
+
+function looksLikeExtractorBreakage(lines) {
+  const tail = lines.slice(-40);
+  if (tail.some((l) => /^ERROR/.test(l) && NOT_FIXABLE.test(l))) return false;
+  return tail.some((l) => /^(ERROR|WARNING)/.test(l) && UPDATE_WORTHY.test(l));
+}
+
+// Runs `yt-dlp -U`; resolves { ok, updated, version, output }.
+function runUpdate(ytdlp) {
+  return new Promise((resolve) => {
+    const { cmd, prefix } = toolExec(ytdlp);
+    let out = "";
+    let child;
+    try {
+      child = spawn(cmd, [...prefix, "-U"], { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+    } catch (e) {
+      return resolve({ ok: false, updated: false, version: ytdlp.version, output: `spawn failed: ${e.message}` });
+    }
+    const timer = setTimeout(() => {
+      try { child.kill(); } catch {}
+    }, 180000);
+    child.stdout.on("data", (d) => (out += d));
+    child.stderr.on("data", (d) => (out += d));
+    child.on("error", (e) => {
+      clearTimeout(timer);
+      resolve({ ok: false, updated: false, version: ytdlp.version, output: String(e.message || e) });
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      toolCache.clear();
+      const fresh = findTool("yt-dlp", ytdlp.override || "");
+      const version = (fresh && fresh.version) || ytdlp.version;
+      const updated = code === 0 && version !== ytdlp.version;
+      resolve({ ok: code === 0, updated, version, output: out.trim().split(/\r?\n/).slice(-8).join("\n") });
+    });
+  });
+}
+
+async function handleUpdate(msg) {
+  const ytdlp = findTool("yt-dlp", msg.ytdlpPath);
+  if (!ytdlp) return send({ type: "updated", id: msg.id, ok: false, output: "yt-dlp not found" });
+  const r = await runUpdate({ ...ytdlp, override: msg.ytdlpPath || "" });
+  send({ type: "updated", id: msg.id, ok: r.ok, updated: r.updated, version: r.version, output: r.output });
 }
 
 function qualityToArgs(quality, hasFfmpeg) {
@@ -286,7 +424,7 @@ function handleDownload(msg) {
       type: "error",
       id,
       message:
-        "yt-dlp not found. Install it (winget install yt-dlp.yt-dlp) or set its path in ComboBreaker options.",
+        "yt-dlp not found. Run the ComboBreaker Helper setup again (ComboBreaker › Media › Set up), or set its path in options.",
     });
   }
   const ffmpeg = findTool("ffmpeg", msg.ffmpegPath);
@@ -321,6 +459,25 @@ function handleDownload(msg) {
     }
   }
   args.push(...qualityToArgs(msg.quality, !!ffmpeg));
+  // YouTube needs a JavaScript runtime since yt-dlp 2025.11; the Node running
+  // this host is one. Older yt-dlp builds don't know the flag.
+  if (ytdlp.helper || String(ytdlp.version || "") >= "2025.11.12") {
+    args.push("--js-runtimes", `node:${process.execPath}`);
+  }
+  // Cookies exported by the extension (Netscape format), written to a private
+  // temp file for this job only. Beats --cookies-from-browser: no keychain
+  // prompts on macOS, works with Chrome's app-bound encryption on Windows.
+  let cookieFile = null;
+  if (typeof msg.cookies === "string" && msg.cookies.trim()) {
+    try {
+      cookieFile = path.join(os.tmpdir(), `combobreaker-cookies-${id}-${process.pid}.txt`);
+      fs.writeFileSync(cookieFile, msg.cookies, { mode: 0o600 });
+      args.push("--cookies", cookieFile);
+    } catch (e) {
+      cookieFile = null;
+      send({ type: "log", id, lines: [`[ComboBreaker] could not write cookie file: ${e.message}`] });
+    }
+  }
   if (msg.referer) args.push("--referer", String(msg.referer));
   if (msg.cookiesFromBrowser) args.push("--cookies-from-browser", String(msg.cookiesFromBrowser));
   if (Array.isArray(msg.extraArgs)) {
@@ -330,24 +487,36 @@ function handleDownload(msg) {
   }
   args.push("--", msg.url);
 
-  let cmd = ytdlp.path;
-  let finalArgs = args;
-  if (ytdlp.viaPython) {
-    cmd = ytdlp.viaPython;
-    finalArgs = ["-m", "yt_dlp", ...args];
-  }
-
-  const job = { child: null, log: [], done: false, filepath: null, title: msg.title || "", cancelled: false };
+  const job = { child: null, log: [], done: false, filepath: null, title: msg.title || "", cancelled: false, attempt: 0, cookieFile };
   jobs.set(id, job);
+  runJob({ id, job, args, outDir, ytdlp, ytdlpPath: msg.ytdlpPath || "" });
+}
+
+function finishJob(id, job) {
+  job.done = true;
+  jobs.delete(id);
+  if (job.cookieFile) {
+    try { fs.unlinkSync(job.cookieFile); } catch {}
+    job.cookieFile = null;
+  }
+}
+
+function runJob(plan) {
+  const { id, job, args, outDir } = plan;
+  job.attempt += 1;
+  job.log = [];
+  job.filepath = null;
+  const { cmd, prefix } = toolExec(plan.ytdlp);
+  const finalArgs = [...prefix, ...args];
   let child;
   try {
     child = spawn(cmd, finalArgs, { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
   } catch (e) {
-    jobs.delete(id);
+    finishJob(id, job);
     return send({ type: "error", id, message: `spawn failed: ${e.message}` });
   }
   job.child = child;
-  send({ type: "started", id, pid: child.pid, cmd, args: finalArgs, outputDir: outDir });
+  send({ type: "started", id, pid: child.pid, cmd, args: finalArgs, outputDir: outDir, attempt: job.attempt });
 
   let lastProgressAt = 0;
   const onLine = (line) => {
@@ -391,29 +560,46 @@ function handleDownload(msg) {
 
   child.on("error", (e) => {
     if (job.done) return;
-    job.done = true;
-    jobs.delete(id);
+    finishJob(id, job);
     send({ type: "error", id, message: `yt-dlp failed to start: ${e.message}` });
   });
-  child.on("close", (code) => {
+  child.on("close", async (code) => {
     if (job.done) return;
-    job.done = true;
-    jobs.delete(id);
     if (job.cancelled) {
+      finishJob(id, job);
       send({ type: "cancelled", id });
       return;
     }
     if (code === 0) {
+      finishJob(id, job);
       send({ type: "done", id, filepath: job.filepath, title: job.title, outputDir: outDir });
-    } else {
-      const errLine = [...job.log].reverse().find((l) => /^ERROR/.test(l)) || job.log.slice(-1)[0] || "";
-      send({
-        type: "error",
-        id,
-        message: `yt-dlp exited with code ${code}. ${errLine}`.trim(),
-        log: job.log.slice(-40),
-      });
+      return;
     }
+    const errLine = [...job.log].reverse().find((l) => /^ERROR/.test(l)) || job.log.slice(-1)[0] || "";
+    // First failure that looks like site breakage: update yt-dlp, try once more.
+    if (job.attempt === 1 && looksLikeExtractorBreakage(job.log)) {
+      job.child = null;
+      send({ type: "progress", id, status: "updating", percent: null, title: job.title });
+      const r = await runUpdate({ ...plan.ytdlp, override: plan.ytdlpPath });
+      if (job.cancelled) {
+        finishJob(id, job);
+        send({ type: "cancelled", id });
+        return;
+      }
+      if (r.updated) {
+        const fresh = findTool("yt-dlp", plan.ytdlpPath) || plan.ytdlp;
+        send({ type: "log", id, lines: [`[ComboBreaker] updated yt-dlp to ${r.version}; retrying`] });
+        return runJob({ ...plan, ytdlp: fresh });
+      }
+      job.log.push(`[ComboBreaker] yt-dlp ${r.version} is already the latest; not retrying`);
+    }
+    finishJob(id, job);
+    send({
+      type: "error",
+      id,
+      message: `yt-dlp exited with code ${code}. ${errLine}`.trim(),
+      log: job.log.slice(-40),
+    });
   });
 }
 

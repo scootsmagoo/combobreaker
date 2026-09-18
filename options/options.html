@@ -90,34 +90,34 @@
             on/off lives in the popup's Media tab.
           </p>
 
-          <h3 class="sub-h">yt-dlp bridge</h3>
+          <h3 class="sub-h">Helper (for YouTube)</h3>
           <div class="bridge-status" id="bridge-status">
             <span class="bridge-dot" id="bridge-dot"></span>
             <span id="bridge-text">Checking…</span>
             <button type="button" id="bridge-recheck" class="ghost-btn" title="Re-check">↻</button>
           </div>
           <p class="hint">
-            One-click YouTube, DASH and split-audio HLS downloads by running a
-            locally installed <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noopener">yt-dlp</a>
-            (+ <a href="https://ffmpeg.org/" target="_blank" rel="noopener">ffmpeg</a>) through Chrome's native messaging. Nothing leaves your machine.
+            YouTube, DASH and split-audio HLS downloads run through the free
+            ComboBreaker Helper: a small program that runs
+            <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noopener">yt-dlp</a>
+            and <a href="https://ffmpeg.org/" target="_blank" rel="noopener">ffmpeg</a> on this
+            computer. Nothing leaves your machine. Twitter/X and plain video files never need it.
           </p>
-          <details class="bridge-install" id="bridge-install">
-            <summary>Install / repair the bridge</summary>
-            <ol class="hint steps">
-              <li>Install the tools (Windows):
-                <code class="cmd" data-copy>winget install yt-dlp.yt-dlp Gyan.FFmpeg OpenJS.NodeJS.LTS</code>
-              </li>
-              <li>From the ComboBreaker source folder, register the host for this extension ID
-                (<code id="ext-id">…</code>):
-                <code class="cmd" id="install-cmd" data-copy>…</code>
-              </li>
-              <li>Fully quit and relaunch the browser, then hit ↻ above.</li>
-            </ol>
-            <p class="hint">
-              macOS / Linux: <code>./native/install.sh &lt;extension-id&gt;</code>.
-              Remove with <code>native/uninstall.ps1</code>. Details in <code>native/README.md</code>.
-            </p>
-          </details>
+          <div class="bridge-actions">
+            <button type="button" id="bridge-setup" class="primary-btn">Set up the Helper</button>
+            <button type="button" id="bridge-update" class="text-btn" hidden title="Run yt-dlp's self-update now (it also happens automatically when a download fails)">Update yt-dlp</button>
+          </div>
+
+          <label class="row" title="Send this browser's cookies for the video's site with each download">
+            <span>Use my browser's cookies</span>
+            <input type="checkbox" id="y-cookies-send" />
+          </label>
+          <p class="hint">
+            Passes YouTube's "sign in to confirm you're not a bot" check by
+            downloading as your own browser session. Also unlocks age-gated and
+            members-only videos. Off by default: YouTube has occasionally warned
+            accounts that download heavily.
+          </p>
 
           <div class="bridge-fields">
             <label class="field">
@@ -138,34 +138,42 @@
               <span>Prefer MP4 (H.264/AAC)</span>
               <input type="checkbox" id="y-mp4" />
             </label>
-            <label class="field">
-              <span>yt-dlp path (optional)</span>
-              <input type="text" id="y-ytdlp" placeholder="auto-detect" spellcheck="false" />
-            </label>
-            <label class="field">
-              <span>ffmpeg path (optional)</span>
-              <input type="text" id="y-ffmpeg" placeholder="auto-detect" spellcheck="false" />
-            </label>
-            <label class="field">
-              <span>Cookies from browser</span>
-              <select id="y-cookies">
-                <option value="">Off</option>
-                <option value="chrome">Chrome</option>
-                <option value="chromium">Chromium</option>
-                <option value="edge">Edge</option>
-                <option value="brave">Brave</option>
-                <option value="firefox">Firefox</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>Extra yt-dlp args</span>
-              <input type="text" id="y-extra" placeholder='--embed-thumbnail --sub-langs en' spellcheck="false" />
-            </label>
-            <p class="hint">
-              Cookies let yt-dlp fetch age-gated or members-only videos; Chrome
-              must be fully closed for yt-dlp to read its cookie DB on Windows.
-            </p>
           </div>
+
+          <details class="bridge-install" id="bridge-install">
+            <summary>Advanced</summary>
+            <div class="bridge-fields">
+              <label class="field">
+                <span>yt-dlp path (optional, overrides the Helper's copy)</span>
+                <input type="text" id="y-ytdlp" placeholder="auto-detect" spellcheck="false" />
+              </label>
+              <label class="field">
+                <span>ffmpeg path (optional)</span>
+                <input type="text" id="y-ffmpeg" placeholder="auto-detect" spellcheck="false" />
+              </label>
+              <label class="field">
+                <span>yt-dlp --cookies-from-browser (legacy; prefer the toggle above)</span>
+                <select id="y-cookies">
+                  <option value="">Off</option>
+                  <option value="chrome">Chrome</option>
+                  <option value="chromium">Chromium</option>
+                  <option value="edge">Edge</option>
+                  <option value="brave">Brave</option>
+                  <option value="firefox">Firefox</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Extra yt-dlp args</span>
+                <input type="text" id="y-extra" placeholder='--embed-thumbnail --sub-langs en' spellcheck="false" />
+              </label>
+              <p class="hint">
+                Manual install from a checkout of the repo (extension id <code id="ext-id">…</code>):
+                <code class="cmd" id="install-cmd" data-copy>…</code>
+                Or the same one-liner the setup page shows:
+                <code class="cmd" id="install-oneliner" data-copy>…</code>
+              </p>
+            </div>
+          </details>
         </section>
 
         <section class="side-section">

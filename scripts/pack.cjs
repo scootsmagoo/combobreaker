@@ -17,6 +17,10 @@ const INCLUDE = [
   "content",
   "icons",
   "lib",
+  // Template the service worker fills in and hands out as the Windows helper
+  // installer (background/helper_installer.js). The rest of native/ is fetched
+  // from the repo by the installers, not from the extension.
+  "native/install.cmd",
   "options",
   "popup",
   "rules",

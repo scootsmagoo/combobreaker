@@ -22,7 +22,7 @@ Inspired by the spirit of [@levelsio's combo-extension thread](https://x.com/lev
 | **Font inspector** | Hover any element to see its font stack, size, weight, line-height, color. |
 | **JSON formatter** | Auto-pretty-prints `application/json` responses. Tree / Formatted / Raw view modes, depth-level expand buttons (1–5, All), hover for JSON path + click to pin & copy, per-node "expand all descendants", auto/dark/light theme, and `window.data` exposed in the page console. |
 | **Full-page screenshot** | Scroll-and-stitch the entire page to a PNG download. |
-| **Video downloader** | Hover any video player or thumbnail and a small **download badge** appears on it (YouTube feeds and players, Twitter/X videos and GIFs, any `<video>`). Click to download, or open the caret for quality presets and copy helpers. The **Media** tab in the popup lists the videos on the page with thumbnails and a "find on page" action, shows yt-dlp job progress, and keeps the raw sniffed-URL list. Direct files go through `chrome.downloads`; HLS has an in-extension downloader; YouTube, DASH and split-audio HLS use the optional **yt-dlp bridge** (a local native-messaging host, see below). |
+| **Video downloader** | Hover any video player or thumbnail and a small **download badge** appears on it (YouTube feeds and players, Twitter/X videos and GIFs, any `<video>`). Click to download, or open the caret for quality presets. The **Media** tab in the popup lists the videos on the page with thumbnails and a "find on page" action, shows download progress, and keeps the raw sniffed-URL list. Direct files go through `chrome.downloads`; HLS has an in-extension downloader; YouTube, DASH and split-audio HLS use the **ComboBreaker Helper**, a one-time install that runs yt-dlp locally (see below). |
 | **Reader view** | **Browse** tab: extract the main article with [Mozilla Readability](https://github.com/mozilla/readability) and open a clean **reader** tab. Optional **Copy as Markdown** uses [Turndown](https://github.com/mixmark-io/turndown) for notes or LLM workflows. Vendored under `vendor/`. |
 | **Structured data (JSON-LD)** | **Browse** → **View structured data**: list every `<script type="application/ld+json">` block, summarize `@type`, pretty-print, copy, heuristic notes, microdata and RDFa summaries, and **links to Google’s Rich Results Test and the Schema.org validator** for the current tab URL. Includes a small **JSON-LD builder** (common types) to generate and copy markup — all local; optional validator links are the only use of the network. |
 | **Encoding override** | Manually set character encoding for legacy/garbled pages. |
@@ -116,8 +116,11 @@ content/json_formatter.js     Pretty-printer for JSON response bodies
 content/media_finder.js       DOM scan for video URLs
 content/media_overlay.js      On-page download badge (all frames, shadow DOM, site adapters)
 content/page_hooks.js         MAIN-world fetch/XHR hook on Twitter/X for direct MP4 variants
-background/ytdlp_bridge.js    Native-messaging client for the yt-dlp host, job table, progress fan-out
-native/                       yt-dlp native messaging host (Node) + installers
+background/ytdlp_bridge.js    Native-messaging client for the Helper, job table, progress fan-out
+background/helper_installer.js Fills in native/install.cmd and hands it to chrome.downloads (Windows)
+native/                       The Helper: native messaging host (Node) + one-line installers
+viewer/helper_setup.*         Setup page: OS-specific step, polls until the Helper answers
+lib/helper.js                 Helper constants (source URL, install one-liner, folders)
 content/schema_inject.js      Injected to collect JSON-LD / microdata / RDFa for structured-data viewer
 content/reader_inject.js      Injected with Readability + Turndown for reader / Copy as Markdown
 tools/                        On-demand: color picker, ruler, whatfont
@@ -144,15 +147,16 @@ modified) over whatever video-ish thing is under the pointer:
 
 - **YouTube**: the player on watch/shorts/embed pages, and every thumbnail on
   home, search, subscriptions, sidebars and channel pages. Click = download
-  that video through the yt-dlp bridge; the caret offers Best / 1080p / 720p /
-  480p / Audio-only (MP3).
+  that video through the Helper; the caret offers Best / 1080p / 720p /
+  480p / Audio-only (MP3). Without the Helper, the click shows a one-time
+  setup prompt instead.
 - **Twitter / X**: `content/page_hooks.js` (page world) wraps `fetch`/XHR on
   `/i/api/graphql/*` and lifts `video_info.variants` out of the timeline JSON,
   so each tweet's video maps to its direct MP4s at every bitrate. Click =
   best MP4 via `chrome.downloads`, no HLS, no yt-dlp needed. GIFs work too.
 - **Everything else**: any `<video>` with a real `src`/`<source>` downloads
   directly. Blob-backed players fall back to the HLS/DASH manifests the
-  network sniffer saw for that tab, then to "yt-dlp this page".
+  network sniffer saw for that tab, then to "download this page via the Helper".
 
 Turn badges off globally in Options → Downloads, or per site from the badge
 menu ("Hide badges on this site") or the popup's Media tab.
@@ -161,36 +165,61 @@ menu ("Hide badges on this site") or the popup's Media tab.
 
 - **Videos on this page**: what the badge would offer, as a list with
   thumbnails. Click a title or thumbnail to scroll to it and flash it.
-- **yt-dlp downloads**: live progress, cancel, "Folder" to reveal the file,
+- **Helper downloads**: live progress, cancel, "Folder" to reveal the file,
   retry on failure.
 - **Raw media URLs**: the old flat list (DOM scan + `webRequest` sniff), still
   useful for odd players.
 
-#### yt-dlp bridge (optional)
+#### The Helper (one-time install, needed for YouTube)
 
-YouTube's streams are signed and the signature scheme changes constantly;
-the only maintainable way to download them without a third-party service is
-to let **yt-dlp** do it. `native/` contains a small Node native-messaging host
-and installers; see [`native/README.md`](native/README.md). Once registered,
-the badge and the Media tab download through it with progress, and it also
-handles DASH, fMP4 HLS with separate audio, and AES-128 HLS. Without it, the
-badge copies a ready-to-paste `yt-dlp "<url>"` command instead.
+YouTube's streams are signed and the signing scheme changes constantly; the
+only maintainable way to download them without a third-party service is to
+let **yt-dlp** do it. The **ComboBreaker Helper** is a native-messaging host
+(`native/host.js`) plus private copies of Node, Python + yt-dlp's zip build,
+and a static ffmpeg, all in one folder in the user's profile. Nothing else on
+the machine is touched, and nothing is sent anywhere but the video site.
 
-#### Built-in paths (no bridge)
+Setup is designed for people who never open a terminal on purpose:
+
+1. Clicking a YouTube badge (or "Set up" in the popup / options) opens the
+   **setup page** (`viewer/helper_setup.html`).
+2. **macOS / Linux**: one line to paste into Terminal
+   (`curl … install.sh | bash -s -- <extension-id>`), pre-filled with the
+   extension id. **Windows**: a "Download the installer" button saves
+   `Install ComboBreaker Helper.cmd` with the id baked in; double-click it.
+3. The setup page polls and turns green when the Helper answers. No browser
+   restart.
+
+After that the badge and the Media tab download through it with progress;
+it also handles DASH, fMP4 HLS with separate audio, and AES-128 HLS. When a
+download fails in a way that smells like YouTube changed something, the host
+runs yt-dlp's self-update and retries once; it also checks for an update once
+a day in the background, and there is an **Update yt-dlp** button in options.
+`node scripts/smoke_helper.js [--download]` answers "is the Helper broken?"
+from a terminal without a browser. If YouTube answers "sign in to confirm you're not a bot",
+turn on **Use my browser's cookies** in options: the extension exports the
+site's cookies (via `chrome.cookies`, already decrypted, no keychain prompt)
+into a per-download temp file for yt-dlp. Details, layout and the wire
+protocol are in [`native/README.md`](native/README.md).
+
+#### Built-in paths (no Helper)
 
 - **Direct files** (mp4, webm, mov, mkv, mp3, m4a, …): `chrome.downloads`
   into a `combobreaker/` subfolder.
 - **HLS** (`.m3u8`): `viewer/hls_downloader.html` parses the playlist, fetches
   segments, and writes a single `.ts`, or `.mp4` for fMP4 renditions (init
   segment + segments). Separate audio renditions are not muxed; the page says
-  so and offers the bridge when installed.
+  so and offers the Helper when installed.
 - **DASH** (`.mpd`): detection only.
 
 #### Caveats
 
 - **No DRM** anywhere (Widevine/FairPlay content stays where it is).
 - **Live streams** only see the current playlist window in the built-in HLS path.
-- **YouTube** needs the bridge; expect yt-dlp to need updating now and then.
+- **YouTube** needs the Helper; yt-dlp updates itself when YouTube breaks it.
+- **Unsigned installers**: there is no Apple/Microsoft code-signing certificate,
+  so macOS gets a Terminal one-liner (a downloaded script would hit Gatekeeper)
+  and Windows shows a SmartScreen "More info → Run anyway" once.
 
 ### Dark-mode model
 
@@ -206,7 +235,8 @@ ComboBreaker:
 - Makes **zero** tracking or analytics network requests of its own.
 - Stores your settings in `chrome.storage.sync` (or session/local where explicitly stated); there is no ComboBreaker server.
 - Asks for `<all_urls>` so per-site CSS/JS and tools can work on the pages you choose.
-- `nativeMessaging` is only used for the optional yt-dlp bridge, which you install yourself and which only ever runs your local `yt-dlp`.
+- `nativeMessaging` is only used for the ComboBreaker Helper, which you install yourself and which only ever runs its local `yt-dlp`.
+- `cookies` is used for the optional "Use my browser's cookies" download setting (off by default) and nothing else.
 
 ## Contributing
 
