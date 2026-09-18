@@ -1,0 +1,49 @@
+name: Refresh Strong blocklist
+
+# Regenerates rules/strong_block.json from Peter Lowe's list once a week and
+# opens a PR when the domains changed, so the list stays current without the
+# extension ever fetching anything at runtime. Nothing is merged automatically.
+#
+# Needs Settings → Actions → General → "Allow GitHub Actions to create and
+# approve pull requests". Uses only first-party actions and the runner's gh.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1" # Mondays 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/update_blocklist.js
+      - name: Open a PR if the domain list changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The meta file's date changes on every run; only the rules count.
+          if git diff --quiet -- rules/strong_block.json; then
+            echo "No change."
+            exit 0
+          fi
+          npm install --no-audit --no-fund
+          npm run check
+          branch="blocklist/$(date -u +%Y-%m-%d)"
+          domains=$(node -p "require('./rules/strong_block.meta.json').domains")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add rules/strong_block.json rules/strong_block.meta.json
+          git commit -m "Refresh Strong blocklist ($domains domains)"
+          git push -f origin "$branch"
+          gh pr create --title "Refresh Strong blocklist ($domains domains)" \
+            --body "Weekly regeneration of \`rules/strong_block.json\` from https://pgl.yoyo.org/adservers/ by \`scripts/update_blocklist.js\`. Review the diff for anything surprising before merging." \
+            || echo "A PR for $branch already exists."
