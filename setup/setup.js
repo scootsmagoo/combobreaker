@@ -1,68 +1,36 @@
-// Video download setup: one status light, one command per OS, one button.
+// Video download setup: one status light, one command, one button.
 // The command fetches native/setup.ps1 (or setup.sh) from the public repo and
 // runs it with this install's extension id; see those scripts for what they do.
 
-import { getGlobal, setGlobal } from "../lib/storage.js";
-
 const RAW = "https://raw.githubusercontent.com/scootsmagoo/combobreaker/main/native";
 const ID = chrome.runtime.id;
-const UNIX_CMD = `curl -fsSL ${RAW}/setup.sh | bash -s -- ${ID}`;
 
-const OS = {
+const COMMANDS = {
+  // Works when pasted into either PowerShell or cmd.
+  windows: `powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((curl.exe -fsSL ${RAW}/setup.ps1 | Out-String))) -ExtensionId ${ID}"`,
+  unix: `curl -fsSL ${RAW}/setup.sh | bash -s -- ${ID}`,
+};
+const PASTE = {
   windows: {
-    // Works when pasted into either PowerShell or cmd.
-    cmd: `powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((curl.exe -fsSL ${RAW}/setup.ps1 | Out-String))) -ExtensionId ${ID}"`,
-    openTitle: "Open Terminal",
-    openHint: "Right-click the Start button and choose Terminal (on Windows 10: Windows PowerShell).",
-    pasteHint: "Paste with Ctrl+V or a right-click. It takes a minute or two and doesn't need administrator rights.",
-    update: "winget upgrade yt-dlp.yt-dlp",
-    cookies:
-      "On Windows, Chrome, Edge and Brave lock their sign-in data, so this usually only works with Firefox: sign into YouTube in Firefox once, then choose Firefox here.",
+    title: "Paste it into Terminal and press Enter",
+    hint: "Right-click the Start button → Terminal (or PowerShell), paste, Enter. Takes a minute or two.",
   },
-  mac: {
-    cmd: UNIX_CMD,
-    openTitle: "Open Terminal",
-    openHint: "Press ⌘ + Space, type Terminal, press Return.",
-    pasteHint:
-      "Paste with ⌘ + V. It uses Homebrew; if you don't have Homebrew yet, the command tells you the one line that installs it, then you run this command again.",
-    update: "brew upgrade yt-dlp",
-    cookies:
-      "The first time, macOS asks to let yt-dlp read the browser's saved sign-in (a Keychain prompt) — choose Always Allow. For Safari, Terminal also needs Full Disk Access in System Settings → Privacy & Security.",
-  },
-  linux: {
-    cmd: UNIX_CMD,
-    openTitle: "Open a terminal",
-    openHint: "Usually Ctrl + Alt + T.",
-    pasteHint: "Paste with Ctrl + Shift + V. It may ask for your password to install packages with apt, dnf or pacman.",
-    update: "yt-dlp -U   (or update it with your package manager)",
-    cookies: "Choose the browser where you're signed into YouTube. Snap and Flatpak browsers keep their data where yt-dlp may not find it.",
+  unix: {
+    title: "Paste it into Terminal and press Enter",
+    hint: "macOS: open Terminal from Spotlight. It may ask for your password to install packages.",
   },
 };
 
 const $ = (id) => document.getElementById(id);
+let os = /Win/i.test(navigator.platform || navigator.userAgent) ? "windows" : "unix";
 let pollTimer = null;
-let os = detectOs();
-
-function detectOs() {
-  const p = `${navigator.userAgentData?.platform || ""} ${navigator.platform || ""} ${navigator.userAgent}`;
-  if (/win/i.test(p)) return "windows";
-  if (/mac/i.test(p)) return "mac";
-  return "linux";
-}
 
 function renderOs() {
-  const o = OS[os];
-  document.querySelectorAll(".os-tab").forEach((t) => {
-    const on = t.dataset.os === os;
-    t.classList.toggle("active", on);
-    t.setAttribute("aria-selected", String(on));
-  });
-  $("cmd").textContent = o.cmd;
-  $("open-title").textContent = o.openTitle;
-  $("open-hint").textContent = o.openHint;
-  $("paste-hint").textContent = o.pasteHint;
-  $("update-cmd").textContent = o.update;
-  $("cookies-note").textContent = o.cookies;
+  $("cmd").textContent = COMMANDS[os];
+  $("paste-title").textContent = PASTE[os].title;
+  $("paste-hint").textContent = PASTE[os].hint;
+  $("os-label").textContent = os === "windows" ? "Showing the Windows command. " : "Showing the macOS / Linux command. ";
+  $("os-toggle").textContent = os === "windows" ? "On macOS or Linux?" : "On Windows?";
 }
 
 async function check(force) {
@@ -85,7 +53,7 @@ function render(res) {
     $("status-text").textContent = "Ready";
   } else if (ready) {
     status.dataset.state = "partial";
-    $("status-text").textContent = "Almost: ffmpeg is missing, so HD video and audio can't be joined. Run the command again.";
+    $("status-text").textContent = "Almost: ffmpeg is missing, so YouTube video and audio can't be joined. Run the command again.";
   } else if (res.hostVersion) {
     status.dataset.state = "partial";
     $("status-text").textContent = "Helper found, but yt-dlp is missing. Run the command again.";
@@ -107,22 +75,17 @@ function render(res) {
   }
 }
 
-async function copyFrom(codeEl, btn) {
-  const label = btn.textContent;
+$("copy").addEventListener("click", async () => {
+  const btn = $("copy");
   try {
-    await navigator.clipboard.writeText(codeEl.textContent);
+    await navigator.clipboard.writeText(COMMANDS[os]);
     btn.textContent = "Copied ✓";
   } catch {
-    // Clipboard blocked: select it so the keyboard shortcut works.
-    getSelection().selectAllChildren(codeEl);
-    btn.textContent = os === "mac" ? "Press ⌘C" : "Press Ctrl+C";
+    // Clipboard blocked: select it so Ctrl+C works.
+    getSelection().selectAllChildren($("cmd"));
+    btn.textContent = "Press Ctrl+C";
   }
-  setTimeout(() => (btn.textContent = label), 2000);
-}
-
-$("copy").addEventListener("click", (e) => copyFrom($("cmd"), e.currentTarget));
-document.querySelectorAll("[data-copy-from]").forEach((btn) => {
-  btn.addEventListener("click", () => copyFrom($(btn.dataset.copyFrom), btn));
+  setTimeout(() => (btn.textContent = "Copy"), 2000);
 });
 
 $("recheck").addEventListener("click", async () => {
@@ -131,21 +94,9 @@ $("recheck").addEventListener("click", async () => {
   await check(true);
 });
 
-document.querySelectorAll(".os-tab").forEach((t) => {
-  t.addEventListener("click", () => {
-    os = t.dataset.os;
-    renderOs();
-  });
-});
-
-// Same setting as Options → Downloads → Advanced → "Cookies from browser".
-getGlobal().then((g) => {
-  $("cookies").value = (g.ytdlp && g.ytdlp.cookiesFromBrowser) || "";
-});
-$("cookies").addEventListener("change", async (e) => {
-  await setGlobal({ ytdlp: { cookiesFromBrowser: e.target.value } });
-  $("cookies-saved").hidden = false;
-  setTimeout(() => ($("cookies-saved").hidden = true), 1500);
+$("os-toggle").addEventListener("click", () => {
+  os = os === "windows" ? "unix" : "windows";
+  renderOs();
 });
 
 renderOs();

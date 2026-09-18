@@ -30,12 +30,6 @@
           One command installs everything.
         </p>
 
-        <div class="os-tabs" role="tablist" aria-label="Your computer">
-          <button type="button" role="tab" class="os-tab" data-os="windows">Windows</button>
-          <button type="button" role="tab" class="os-tab" data-os="mac">Mac</button>
-          <button type="button" role="tab" class="os-tab" data-os="linux">Linux</button>
-        </div>
-
         <ol>
           <li>
             <h2>Copy this command</h2>
@@ -45,11 +39,7 @@
             </div>
           </li>
           <li>
-            <h2 id="open-title"></h2>
-            <p class="muted" id="open-hint"></p>
-          </li>
-          <li>
-            <h2>Paste, press Enter, wait for “All set”</h2>
+            <h2 id="paste-title">Paste it into Terminal and press Enter</h2>
             <p class="muted" id="paste-hint"></p>
           </li>
           <li>
@@ -58,57 +48,14 @@
             <button type="button" id="recheck" class="secondary">Check again</button>
           </li>
         </ol>
-      </section>
 
-      <section class="help">
-        <h2 class="help-title">If a YouTube download fails</h2>
-
-        <details>
-          <summary>“Sign in to confirm you’re not a bot”, age-restricted or members-only videos</summary>
-          <p>
-            YouTube wants to see that you're signed in. Pick the browser where
-            you're logged into YouTube and ComboBreaker will let yt-dlp use that
-            sign-in:
-          </p>
-          <label class="inline-field">
-            <span>Use my YouTube sign-in from</span>
-            <select id="cookies">
-              <option value="">Off</option>
-              <option value="firefox">Firefox</option>
-              <option value="safari">Safari</option>
-              <option value="chrome">Chrome</option>
-              <option value="edge">Edge</option>
-              <option value="brave">Brave</option>
-              <option value="chromium">Chromium</option>
-            </select>
-            <span class="saved" id="cookies-saved" hidden>Saved ✓</span>
-          </label>
-          <p class="muted" id="cookies-note"></p>
-        </details>
+        <p class="muted os-switch">
+          <span id="os-label"></span>
+          <button type="button" class="link" id="os-toggle"></button>
+        </p>
 
         <details>
-          <summary>It worked before and suddenly stopped</summary>
-          <p>
-            YouTube changes things every few weeks and yt-dlp ships a fix soon
-            after. Update it, then try again:
-          </p>
-          <div class="cmd">
-            <code id="update-cmd"></code>
-            <button type="button" class="copy-small" data-copy-from="update-cmd">Copy</button>
-          </div>
-        </details>
-
-        <details>
-          <summary>A video is missing, or only low quality is offered</summary>
-          <ul>
-            <li>On YouTube, click your profile picture and make sure <strong>Restricted Mode</strong> is <strong>Off</strong>.</li>
-            <li>If the status above says ffmpeg is missing, run the install command again. Without ffmpeg, YouTube's HD video and its audio can't be joined, so you only get 720p or lower.</li>
-            <li>Live streams can only be downloaded after they end. Purchased or rented movies are DRM-protected and can't be downloaded at all.</li>
-          </ul>
-        </details>
-
-        <details>
-          <summary>What does the install command do?</summary>
+          <summary>What does the command do?</summary>
           <p>
             It installs <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noopener">yt-dlp</a>,
             <a href="https://ffmpeg.org/" target="_blank" rel="noopener">ffmpeg</a> and
@@ -116,7 +63,7 @@
             downloads ComboBreaker's helper script from its
             <a href="https://github.com/scootsmagoo/combobreaker/tree/main/native" target="_blank" rel="noopener">GitHub repo</a>
             into your user folder, and tells your browser where to find it.
-            Nothing runs in the background, and downloads never leave your machine.
+            No admin rights, nothing runs in the background, and downloads never leave your machine.
           </p>
         </details>
       </section>
