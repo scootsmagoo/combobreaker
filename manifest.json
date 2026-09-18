@@ -38,6 +38,7 @@
     "scripting",
     "contentSettings",
     "declarativeNetRequest",
+    "declarativeNetRequestFeedback",
     "downloads",
     "cookies",
     "webRequest",

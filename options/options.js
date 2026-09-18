@@ -24,6 +24,7 @@ async function init() {
 
   const g = await getGlobal();
   $("g-adblock-level").value = g.adblockLevel;
+  $("g-adblock-badge").checked = !!g.adblockBadge;
   $("g-json").checked = !!g.jsonFormatterEnabled;
   $("g-darkmode").checked = !!g.darkMode.enabled;
   renderDarkTuneInputs(g.darkMode.theme);
@@ -32,6 +33,11 @@ async function init() {
     await setGlobal({ adblockLevel: e.target.value });
     chrome.runtime.sendMessage({ type: "apply-adblock" });
     toast(`Ad blocking: ${e.target.value}`, "ok");
+  });
+  $("g-adblock-badge").addEventListener("change", async (e) => {
+    await setGlobal({ adblockBadge: e.target.checked });
+    chrome.runtime.sendMessage({ type: "apply-adblock" });
+    toast(`Blocked count ${e.target.checked ? "shown" : "hidden"}`, "ok");
   });
   $("g-json").addEventListener("change", async (e) => {
     await setGlobal({ jsonFormatterEnabled: e.target.checked });

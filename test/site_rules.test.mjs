@@ -6,6 +6,7 @@ import {
   sanitizeHeaderRules,
   normalizeReferrerPolicy,
   SITE_RULE_PRIORITY,
+  ruleLabel,
 } from "../lib/site_rules.js";
 
 test("sanitizeHeaderRules drops junk and empty values", () => {
@@ -75,4 +76,10 @@ test("referrer policies", () => {
   assert.equal(never.length, 2);
   assert.equal(never[1].condition.domainType, undefined);
   assert.deepEqual(never[1].action.requestHeaders, [{ header: "referer", operation: "remove" }]);
+});
+
+test("ruleLabel names a block rule by its domain", () => {
+  assert.equal(ruleLabel({ id: 1, condition: { urlFilter: "||doubleclick.net^" } }), "doubleclick.net");
+  assert.equal(ruleLabel({ id: 2, condition: { requestDomains: ["a.example"] } }), "a.example");
+  assert.equal(ruleLabel({ id: 3, condition: { requestDomains: ["a.example", "b.example"] } }), "rule 3");
 });

@@ -1241,3 +1241,7 @@ dialog button[value="apply"], dialog button[value="save"], dialog button[value="
   font-size: 12px;
   max-width: 160px;
 }
+
+/* "N blocked on this page" under the ad blocking rows */
+.adblock-summary { padding: 0 10px 6px; font-size: 11px; line-height: 1.45; }
+.adblock-summary b { color: var(--fg); font-weight: 600; }

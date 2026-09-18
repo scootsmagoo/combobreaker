@@ -1,5 +1,6 @@
-// Smoke test for the per-site privacy settings: third-party cookie stripping,
-// referrer override and auto-clear on close.
+// Smoke test for the blocked-request counter and the per-site privacy
+// settings: third-party cookie stripping, referrer override and auto-clear on
+// close.
 //
 //   npm i --no-save puppeteer-core
 //   node scripts/smoke_privacy.js
@@ -51,6 +52,13 @@ function serve(req, res) {
     res.writeHead(200, { "content-type": "text/html", "referrer-policy": "unsafe-url", "set-cookie": "first=1; Path=/" });
     return res.end(`<!doctype html><title>privacy smoke</title><img src="${THIRD}/pixel?n=${n}"><script>localStorage.setItem("k","v")</script>`);
   }
+  if (url.pathname === "/ads") {
+    res.writeHead(200, { "content-type": "text/html" });
+    return res.end(
+      `<!doctype html><title>ads</title><script src="https://doubleclick.net/x.js"></script>` +
+        `<script src="https://www.doubleclick.net/y.js"></script><img src="https://google-analytics.com/collect">`
+    );
+  }
   if (url.pathname === "/blank") {
     res.writeHead(200, { "content-type": "text/html" });
     return res.end("<!doctype html><title>blank</title>");
@@ -100,6 +108,23 @@ async function main() {
       await sleep(300);
       return page;
     };
+
+    // 0. Blocked-request counter: toolbar badge and the popup's summary.
+    const ads = await browser.newPage();
+    await ads.goto(`${SITE}/ads`, { waitUntil: "networkidle0" });
+    await sleep(500);
+    const counted = await opts.evaluate(async (url) => {
+      const [tab] = await chrome.tabs.query({ url });
+      const matched = await chrome.runtime.sendMessage({ type: "adblock-matched", tabId: tab.id });
+      return { matched, badge: await chrome.action.getBadgeText({ tabId: tab.id }) };
+    }, `${SITE}/ads`);
+    const m = counted.matched.result;
+    expect(
+      "blockedCounter",
+      m && m.total === 3 && m.basic[0].name === "doubleclick.net" && m.basic[0].count === 2 && counted.badge === "3",
+      counted
+    );
+    await ads.close();
 
     // Give the third party a cookie of its own.
     const tp = await browser.newPage();

@@ -25,7 +25,7 @@ import {
   runCodeInTab,
 } from "./user_scripts.js";
 import { downloadWindowsInstaller } from "./helper_installer.js";
-import { buildSiteRules, siteNeedsRules, HEADER_RESOURCE_TYPES } from "../lib/site_rules.js";
+import { buildSiteRules, siteNeedsRules, ruleLabel, HEADER_RESOURCE_TYPES } from "../lib/site_rules.js";
 
 async function boot() {
   await ensureSchema();
@@ -80,6 +80,8 @@ async function handleMessage(msg, sender) {
       return await setEncoding(msg.tabId, msg.encoding);
     case "apply-adblock":
       return await applyAdblockState();
+    case "adblock-matched":
+      return await adblockMatched(msg.tabId);
     case "get-redirect-chain":
       return await getRedirectChain(msg.tabId);
     case "clear-redirect-chain":
@@ -554,7 +556,7 @@ const ADBLOCK_PAUSE_RULE_ID = 900001;
 const ADBLOCK_PAUSE_PRIORITY = 2;
 
 async function applyAdblockState() {
-  const { adblockLevel } = await getGlobal();
+  const { adblockLevel, adblockBadge } = await getGlobal();
   const want = adblockLevel === "strong" ? ["basic", "strong"] : adblockLevel === "basic" ? ["basic"] : [];
   await chrome.declarativeNetRequest.updateEnabledRulesets({
     enableRulesetIds: want.map((k) => ADBLOCK_RULESETS[k]),
@@ -562,6 +564,12 @@ async function applyAdblockState() {
       .filter((k) => !want.includes(k))
       .map((k) => ADBLOCK_RULESETS[k]),
   });
+  // Chrome keeps the per-tab count itself. It counts every request a rule
+  // acted on, so header overrides and the cookie/referrer rules add to it.
+  await chrome.declarativeNetRequest.setExtensionActionOptions({
+    displayActionCountAsBadgeText: adblockBadge && adblockLevel !== "off",
+  });
+  chrome.action.setBadgeBackgroundColor({ color: "#475569" }).catch(() => {});
   const paused = await applyAdblockPauses();
   return { adblockLevel, adblockEnabled: adblockLevel !== "off", paused };
 }
@@ -583,6 +591,37 @@ async function applyAdblockPauses() {
     : [];
   await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: [ADBLOCK_PAUSE_RULE_ID], addRules });
   return paused;
+}
+
+// What was blocked on one tab since its last navigation, for the popup. Basic
+// has one rule per company, so those can be named; Strong packs hundreds of
+// domains into each rule, so it only gets a count. getMatchedRules is rate
+// limited (20 calls / 10 min); the popup treats a failure as "no data".
+
+let basicRuleNames = null;
+
+async function loadBasicRuleNames() {
+  if (basicRuleNames) return basicRuleNames;
+  const rules = await (await fetch(chrome.runtime.getURL("rules/basic_block.json"))).json();
+  basicRuleNames = new Map(rules.map((r) => [r.id, ruleLabel(r)]));
+  return basicRuleNames;
+}
+
+async function adblockMatched(tabId) {
+  if (tabId == null || tabId < 0) return null;
+  const { rulesMatchedInfo } = await chrome.declarativeNetRequest.getMatchedRules({ tabId });
+  const names = await loadBasicRuleNames();
+  const byName = new Map();
+  let strong = 0;
+  for (const { rule } of rulesMatchedInfo) {
+    if (rule.rulesetId === ADBLOCK_RULESETS.strong) strong++;
+    else if (rule.rulesetId === ADBLOCK_RULESETS.basic) {
+      const name = names.get(rule.ruleId) || `rule ${rule.ruleId}`;
+      byName.set(name, (byName.get(name) || 0) + 1);
+    }
+  }
+  const basic = [...byName].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+  return { total: strong + basic.reduce((n, b) => n + b.count, 0), basic, strong };
 }
 
 // ---------- Site data nuke ----------

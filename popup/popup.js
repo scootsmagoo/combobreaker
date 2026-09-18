@@ -23,6 +23,7 @@ async function init() {
 
   STATE.global = await getGlobal();
   renderAdblockLevel(STATE.global.adblockLevel);
+  loadBlockedSummary();
   $("g-json").checked = !!STATE.global.jsonFormatterEnabled;
   $("t-darkmode-global").checked = !!STATE.global.darkMode.enabled;
   renderDarkOverride(null);
@@ -136,6 +137,30 @@ function renderAdblockLevel(level) {
   $("t-adblock-pause").closest(".row").classList.toggle("dimmed", level === "off");
 }
 
+// Blocked since this tab's last navigation. Names come from the Basic list;
+// the Strong list only reports a count (see adblockMatched in the worker).
+async function loadBlockedSummary() {
+  const el = $("adblock-summary");
+  el.hidden = true;
+  if (!STATE.tab || STATE.tab.id == null || STATE.global.adblockLevel === "off") return;
+  let m;
+  try {
+    m = await sendMessage({ type: "adblock-matched", tabId: STATE.tab.id });
+  } catch {
+    return; // getMatchedRules quota; the toolbar badge still shows the number
+  }
+  if (!m) return;
+  el.textContent = "";
+  const b = document.createElement("b");
+  b.textContent = String(m.total);
+  el.append(b, ` request${m.total === 1 ? "" : "s"} blocked on this page`);
+  const parts = m.basic.slice(0, 4).map((x) => (x.count > 1 ? `${x.name} ×${x.count}` : x.name));
+  const rest = m.basic.slice(4).reduce((n, x) => n + x.count, 0) + m.strong;
+  if (parts.length && rest) parts.push(`${rest} more`);
+  if (parts.length) el.append(`: ${parts.join(", ")}`);
+  el.hidden = false;
+}
+
 function bindAdblock() {
   document.querySelectorAll(".adblock-level .seg-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -144,6 +169,7 @@ function bindAdblock() {
       await sendMessage({ type: "apply-adblock" });
       STATE.global.adblockLevel = level;
       renderAdblockLevel(level);
+      loadBlockedSummary();
       const label = { off: "off", basic: "Basic (about 40 big ad and tracking companies)", strong: "Strong (about 3,500 ad and tracking servers)" }[level];
       status(`Ad blocking: ${label}. Reload pages to apply.`, "ok");
     });
