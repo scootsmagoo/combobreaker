@@ -214,8 +214,37 @@ function bindPrivacy() {
   });
 }
 
+// "Built with" chips. Best effort: restricted pages and blocked-JS sites just
+// show nothing.
+async function loadTechStack() {
+  if (!STATE.siteKey || STATE.siteKey === "file://" || STATE.tab?.id == null) return;
+  let tech;
+  try {
+    tech = await sendMessage({ type: "detect-tech", tabId: STATE.tab.id });
+  } catch {
+    return;
+  }
+  if (!tech || !tech.length) return;
+  const chips = $("tech-chips");
+  chips.textContent = "";
+  for (const t of tech) {
+    const chip = document.createElement("span");
+    chip.className = `tech-chip ${t.cat}`;
+    chip.title = t.cat;
+    chip.textContent = t.name;
+    if (t.version) {
+      const v = document.createElement("small");
+      v.textContent = t.version;
+      chip.appendChild(v);
+    }
+    chips.appendChild(chip);
+  }
+  $("tech-stack").hidden = false;
+}
+
 function bindSitePane() {
   bindTips();
+  loadTechStack();
   bindAdblock();
   bindPrivacy();
   $("open-options").addEventListener("click", () => chrome.runtime.openOptionsPage());

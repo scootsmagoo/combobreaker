@@ -1252,3 +1252,12 @@ dialog button[value="apply"], dialog button[value="save"], dialog button[value="
 .storage-kind-bar .seg-btn { flex: 1; }
 .storage-extra { padding: 6px 12px; font-size: 11px; line-height: 1.4; word-break: break-word; }
 .storage-extra:empty { display: none; }
+
+/* Tech stack chips on the Site tab */
+.tech-stack { display: flex; gap: 8px; padding: 8px 12px 2px; align-items: baseline; border-top: 1px solid var(--border); }
+.tech-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-dim); white-space: nowrap; }
+.tech-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.tech-chip { font-size: 11px; padding: 1px 7px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg-3); color: var(--fg); white-space: nowrap; }
+.tech-chip small { color: var(--fg-dim); font-size: 10px; margin-left: 3px; }
+.tech-chip.analytics, .tech-chip.ads { border-color: rgba(251, 191, 36, 0.45); }
+.tech-chip.hosting, .tech-chip.server { color: var(--fg-dim); }
