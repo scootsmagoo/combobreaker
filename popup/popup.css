@@ -1227,3 +1227,17 @@ dialog button[value="apply"], dialog button[value="save"], dialog button[value="
 /* Ad blocking level + per-site pause */
 .adblock-section .adblock-level { cursor: default; }
 .row.dimmed { opacity: 0.45; }
+
+/* Per-site privacy */
+.privacy-section { background: none; }
+.referrer-row { cursor: default; }
+.referrer-row select {
+  background: var(--bg-3);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font: inherit;
+  font-size: 12px;
+  max-width: 160px;
+}

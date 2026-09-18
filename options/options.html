@@ -296,6 +296,29 @@ console.log('hello from ComboBreaker');
               <option value="off">Always off</option>
             </select>
           </label>
+          <label class="row">
+            <span title="When the last tab showing this site closes, its cookies, localStorage, IndexedDB, caches and service workers are deleted. If no tab has the site open when you save, it is cleared straight away.">Forget this site when its last tab closes</span>
+            <select id="meta-autoclear">
+              <option value="">No</option>
+              <option value="on">Yes, wipe its cookies and storage</option>
+            </select>
+          </label>
+          <label class="row">
+            <span title="Requests this site's pages make to other companies' servers carry no cookies and cannot set any. Embedded logins, comment boxes or payment forms from another company may stop working.">Third-party cookies on this site</span>
+            <select id="meta-3p-cookies">
+              <option value="">Allowed (browser default)</option>
+              <option value="on">Blocked</option>
+            </select>
+          </label>
+          <label class="row">
+            <span title="What this site tells other sites about where you came from. Applied as a Referrer-Policy response header, plus a Referer request-header strip for the two strict options.">Referrer sent by this site</span>
+            <select id="meta-referrer">
+              <option value="">Site default</option>
+              <option value="strict-origin-when-cross-origin">Origin only</option>
+              <option value="same-origin">Nothing to other sites</option>
+              <option value="no-referrer">Never</option>
+            </select>
+          </label>
           <p class="hint">
             Synced settings: <code id="storage-bytes">…</code> /
             <code>~100 KB</code> in <code>chrome.storage.sync</code>.

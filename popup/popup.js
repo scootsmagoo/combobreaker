@@ -93,6 +93,9 @@ function renderSiteToggles() {
   $("t-css").checked = !!s.cssEnabled;
   $("t-userjs").checked = !!s.jsEnabled;
   $("t-adblock-pause").checked = !!s.adblockPaused;
+  $("t-auto-clear").checked = !!s.autoClear;
+  $("t-3p-cookies").checked = !!s.blockThirdPartyCookies;
+  $("t-referrer").value = s.referrerPolicy || "";
   // A switch with nothing behind it does nothing; say so.
   $("t-css-state").textContent = s.css && s.css.trim() ? "" : "nothing written yet";
   $("t-userjs-state").textContent = s.js && s.js.trim() ? "" : "nothing written yet";
@@ -107,7 +110,7 @@ function renderDarkOverride(value) {
 }
 
 function disableSiteToggles(reason) {
-  for (const id of ["t-js", "t-css", "t-userjs", "t-adblock-pause"]) $(id).disabled = true;
+  for (const id of ["t-js", "t-css", "t-userjs", "t-adblock-pause", "t-auto-clear", "t-3p-cookies", "t-referrer"]) $(id).disabled = true;
   document
     .querySelectorAll(".site-override .seg-btn")
     .forEach((b) => (b.disabled = true));
@@ -155,9 +158,38 @@ function bindAdblock() {
   });
 }
 
+async function setSitePrivacy(patch) {
+  await sendMessage({ type: "set-site", siteKey: STATE.siteKey, patch });
+  if (STATE.settings) Object.assign(STATE.settings, patch);
+}
+
+function bindPrivacy() {
+  $("t-auto-clear").addEventListener("change", async (e) => {
+    if (!STATE.siteKey) return;
+    const on = e.target.checked;
+    await setSitePrivacy({ autoClear: on });
+    await sendMessage({ type: "apply-auto-clear" });
+    status(on ? `${STATE.siteKey} will be forgotten when its last tab closes.` : `${STATE.siteKey} keeps its data again.`, "ok");
+  });
+  $("t-3p-cookies").addEventListener("change", async (e) => {
+    if (!STATE.siteKey) return;
+    const on = e.target.checked;
+    await setSitePrivacy({ blockThirdPartyCookies: on });
+    await sendMessage({ type: "apply-site-headers", siteKey: STATE.siteKey });
+    status(`Third-party cookies ${on ? "blocked" : "allowed"} on ${STATE.siteKey}. Reload the page.`, "ok");
+  });
+  $("t-referrer").addEventListener("change", async (e) => {
+    if (!STATE.siteKey) return;
+    await setSitePrivacy({ referrerPolicy: e.target.value });
+    await sendMessage({ type: "apply-site-headers", siteKey: STATE.siteKey });
+    status(e.target.value ? "Referrer override saved. Reload the page." : "Referrer override removed. Reload the page.", "ok");
+  });
+}
+
 function bindSitePane() {
   bindTips();
   bindAdblock();
+  bindPrivacy();
   $("open-options").addEventListener("click", () => chrome.runtime.openOptionsPage());
 
   $("t-js").addEventListener("change", async (e) => {

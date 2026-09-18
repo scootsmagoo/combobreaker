@@ -63,6 +63,9 @@ async function init() {
   $("meta-dark").addEventListener("change", () => (STATE.dirty = true));
   $("meta-overlay").addEventListener("change", () => (STATE.dirty = true));
   $("meta-adblock").addEventListener("change", () => (STATE.dirty = true));
+  for (const id of ["meta-autoclear", "meta-3p-cookies", "meta-referrer"]) {
+    $(id).addEventListener("change", () => (STATE.dirty = true));
+  }
 
   $("add-req-header").addEventListener("click", () => addHeaderRow("req"));
   $("add-res-header").addEventListener("click", () => addHeaderRow("res"));
@@ -167,6 +170,9 @@ async function selectSite(siteKey, isNew = false) {
   const mo = STATE.activeSettings.mediaOverlay;
   $("meta-overlay").value = mo === true ? "on" : mo === false ? "off" : "";
   $("meta-adblock").value = STATE.activeSettings.adblockPaused ? "paused" : "";
+  $("meta-autoclear").value = STATE.activeSettings.autoClear ? "on" : "";
+  $("meta-3p-cookies").value = STATE.activeSettings.blockThirdPartyCookies ? "on" : "";
+  $("meta-referrer").value = STATE.activeSettings.referrerPolicy || "";
   $("headers-site-label").textContent = siteKey;
   renderHeaderRules("req", STATE.activeSettings.requestHeaders || []);
   renderHeaderRules("res", STATE.activeSettings.responseHeaders || []);
@@ -233,6 +239,9 @@ async function saveActive() {
   const meta = $("meta-dark").value;
   patch.darkMode = meta === "on" || meta === "off" ? meta : null;
   patch.adblockPaused = $("meta-adblock").value === "paused";
+  patch.autoClear = $("meta-autoclear").value === "on";
+  patch.blockThirdPartyCookies = $("meta-3p-cookies").value === "on";
+  patch.referrerPolicy = $("meta-referrer").value;
   const mo = $("meta-overlay").value;
   patch.mediaOverlay = mo === "on" ? true : mo === "off" ? false : null;
   // Headers are read straight off the DOM each save so unsaved row edits
@@ -250,6 +259,7 @@ async function saveActive() {
     .sendMessage({ type: "apply-site-headers", siteKey: STATE.activeSite })
     .catch(() => {});
   chrome.runtime.sendMessage({ type: "apply-adblock" }).catch(() => {});
+  chrome.runtime.sendMessage({ type: "apply-auto-clear" }).catch(() => {});
 }
 
 async function broadcastSiteChange(siteKey, settings) {

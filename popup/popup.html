@@ -61,6 +61,25 @@
             <input type="checkbox" id="t-adblock-pause" />
           </label>
         </div>
+        <div class="dark-section privacy-section">
+          <label class="row sm">
+            <span>Forget this site when I close it <i class="tip" tabindex="0" role="note" aria-label="When the last tab showing this site closes, its cookies, localStorage, IndexedDB, caches and service workers are deleted, the same wipe as Nuke all site data. You will be logged out each time. Good for sites you visit once and do not want following you around." data-tip="When the last tab showing this site closes, its cookies, localStorage, IndexedDB, caches and service workers are deleted, the same wipe as Nuke all site data. You will be logged out each time. Good for sites you visit once and do not want following you around.">?</i></span>
+            <input type="checkbox" id="t-auto-clear" />
+          </label>
+          <label class="row sm">
+            <span>Block third-party cookies here <i class="tip" tabindex="0" role="note" aria-label="Other companies' servers that this site loads things from (ad networks, embedded widgets, like buttons) get no cookies and cannot set any while you are here, so they cannot recognise you. Embedded logins, comment boxes or payment forms from another company may stop working; switch it off if they do. Reload the page after changing it." data-tip="Other companies' servers that this site loads things from (ad networks, embedded widgets, like buttons) get no cookies and cannot set any while you are here, so they cannot recognise you. Embedded logins, comment boxes or payment forms from another company may stop working; switch it off if they do. Reload the page after changing it.">?</i></span>
+            <input type="checkbox" id="t-3p-cookies" />
+          </label>
+          <div class="row sm referrer-row">
+            <span>Referrer sent by this site <i class="tip" tabindex="0" role="note" aria-label="Controls what this site tells other sites about where you came from when you click a link or it loads something from them. Origin only sends just the site name, never the full address. Nothing to other sites sends it only within this site. Never sends nothing at all, which a few sites' own forms dislike. Reload the page after changing it." data-tip="Controls what this site tells other sites about where you came from when you click a link or it loads something from them. Origin only sends just the site name, never the full address. Nothing to other sites sends it only within this site. Never sends nothing at all, which a few sites' own forms dislike. Reload the page after changing it.">?</i></span>
+            <select id="t-referrer" aria-label="Referrer policy for this site">
+              <option value="">Site default</option>
+              <option value="strict-origin-when-cross-origin">Origin only</option>
+              <option value="same-origin">Nothing to other sites</option>
+              <option value="no-referrer">Never</option>
+            </select>
+          </div>
+        </div>
         <div class="toggles">
           <label class="row">
             <span>Allow JavaScript <i class="tip" tabindex="0" role="note" aria-label="Off blocks ALL of this site's own scripts, using Chrome's built-in per-site setting. It kills most popups, paywall overlays and trackers, but menus, video players and logins usually stop working too. The tab reloads when you flip it." data-tip="Off blocks ALL of this site's own scripts, using Chrome's built-in per-site setting. It kills most popups, paywall overlays and trackers, but menus, video players and logins usually stop working too. The tab reloads when you flip it.">?</i></span>

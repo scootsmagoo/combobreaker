@@ -25,12 +25,14 @@ import {
   runCodeInTab,
 } from "./user_scripts.js";
 import { downloadWindowsInstaller } from "./helper_installer.js";
+import { buildSiteRules, siteNeedsRules, HEADER_RESOURCE_TYPES } from "../lib/site_rules.js";
 
 async function boot() {
   await ensureSchema();
   await applyAdblockState();
   await reapplyAllHeaderRules();
   await syncUserScripts();
+  await sweepAutoClear();
 }
 
 chrome.runtime.onInstalled.addListener(boot);
@@ -124,6 +126,8 @@ async function handleMessage(msg, sender) {
       return await ytdlpClearJobs();
     case "run-snippet":
       return await runCodeInTab(msg.tabId, msg.code);
+    case "apply-auto-clear":
+      return await sweepAutoClear();
     case "nuke-site-data":
       return await nukeSiteData(msg.siteKey, msg.tabUrl);
     case "run-user-js":
@@ -583,8 +587,8 @@ async function applyAdblockPauses() {
 
 // ---------- Site data nuke ----------
 
-async function nukeSiteData(siteKey, tabUrl) {
-  const origins = new Set();
+async function nukeSiteData(siteKey, tabUrl, extraOrigins) {
+  const origins = new Set(extraOrigins || []);
   try {
     const u = new URL(tabUrl);
     if (/^https?:$/.test(u.protocol)) origins.add(u.origin);
@@ -607,6 +611,74 @@ async function nukeSiteData(siteKey, tabUrl) {
   );
   return { origins: [...origins] };
 }
+
+// ---------- Auto-clear on close ----------
+//
+// Sites with autoClear get the same wipe as "Nuke all site data" once their
+// last tab is gone. Each tab remembers the auto-clear sites it has shown
+// (chrome.storage.session, so it survives SW sleeps). Nothing is cleared while
+// the tab is merely navigating: a login that bounces through another domain
+// and back must not lose its cookies halfway. Quitting the browser can kill
+// the worker before onRemoved runs, so boot() sweeps as well.
+
+const TABSITES_KEY = (tabId) => `tabsites:${tabId}`;
+
+// Stored per tab as { [siteKey]: origin[] }. The exact origins matter:
+// localStorage and IndexedDB are per origin, port included.
+async function recordAutoClearTab(tabId, url) {
+  const siteKey = siteKeyFromUrl(url);
+  if (tabId == null || tabId < 0 || !siteKey || siteKey === "file://") return;
+  if (!(await getSite(siteKey)).autoClear) return;
+  const key = TABSITES_KEY(tabId);
+  const seen = (await chrome.storage.session.get(key))[key] || {};
+  const origin = new URL(url).origin;
+  const origins = seen[siteKey] || [];
+  if (origins.includes(origin)) return;
+  await chrome.storage.session.set({ [key]: { ...seen, [siteKey]: [...origins, origin] } });
+}
+
+async function openSiteKeys(exceptTabId) {
+  const tabs = await chrome.tabs.query({});
+  return new Set(tabs.filter((t) => t.id !== exceptTabId).map((t) => siteKeyFromUrl(t.url)).filter(Boolean));
+}
+
+// seen: { [siteKey]: origin[] }
+async function autoClearIfGone(seen, exceptTabId) {
+  const siteKeys = Object.keys(seen);
+  if (!siteKeys.length) return [];
+  const open = await openSiteKeys(exceptTabId);
+  const cleared = [];
+  for (const siteKey of siteKeys) {
+    if (open.has(siteKey) || !(await getSite(siteKey)).autoClear) continue;
+    await nukeSiteData(siteKey, null, seen[siteKey]);
+    cleared.push(siteKey);
+  }
+  return cleared;
+}
+
+// Called from boot() and when the setting is flipped: note tabs that are
+// already showing an auto-clear site, clear auto-clear sites nobody has open.
+async function sweepAutoClear() {
+  const tabs = await chrome.tabs.query({});
+  for (const t of tabs) await recordAutoClearTab(t.id, t.url);
+  const sites = (await listSites()).filter((s) => s.settings.autoClear).map((s) => [s.siteKey, []]);
+  return { cleared: await autoClearIfGone(Object.fromEntries(sites)) };
+}
+
+chrome.tabs.onUpdated.addListener((tabId, info) => {
+  if (info.url) recordAutoClearTab(tabId, info.url).catch(() => {});
+});
+
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+  try {
+    const key = TABSITES_KEY(tabId);
+    const seen = (await chrome.storage.session.get(key))[key] || {};
+    await chrome.storage.session.remove(key);
+    await autoClearIfGone(seen, tabId);
+  } catch (e) {
+    console.warn("[ComboBreaker] auto-clear failed:", e);
+  }
+});
 
 // ---------- Redirect tracer ----------
 // We log main_frame redirects per tab to chrome.storage.session so the chain
@@ -724,54 +796,19 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   chrome.storage.session.remove(HEADERS_KEY(tabId)).catch(() => {});
 });
 
-// ---------- Per-site header overrides (DNR dynamic rules) ----------
+// ---------- Per-site header rules (DNR dynamic rules) ----------
 //
-// We translate each site's requestHeaders / responseHeaders arrays into a
-// pair of DNR dynamic rules (one for request, one for response). Stable rule
-// IDs are stored in chrome.storage.local so updates can cleanly remove the
-// old rules before adding the new ones.
+// lib/site_rules.js turns each site's requestHeaders / responseHeaders arrays,
+// blockThirdPartyCookies and referrerPolicy into DNR modifyHeaders rules.
+// Stable rule IDs are stored in chrome.storage.local so updates can cleanly
+// remove the old rules before adding the new ones.
 //
 // Layout in chrome.storage.local:
 //   cb_header_rule_seq : number              (monotonic, never reused)
 //   cb_header_rule_map : { [siteKey]: number[] }
 //
-// The DNR `requestDomains` condition matches the *request initiator* for
-// subresources and the destination for top-level requests, which is exactly
-// what "headers for site X" means.
-
-const HEADER_VALID_OPS = new Set(["set", "append", "remove"]);
-const HEADER_RESOURCE_TYPES = [
-  "main_frame",
-  "sub_frame",
-  "stylesheet",
-  "script",
-  "image",
-  "font",
-  "object",
-  "xmlhttprequest",
-  "ping",
-  "csp_report",
-  "media",
-  "websocket",
-  "webtransport",
-  "webbundle",
-  "other",
-];
-
-function sanitizeHeaderRules(rules) {
-  if (!Array.isArray(rules)) return [];
-  const out = [];
-  for (const r of rules) {
-    if (!r || typeof r !== "object") continue;
-    const name = String(r.name || "").trim();
-    const op = HEADER_VALID_OPS.has(r.op) ? r.op : "set";
-    if (!name) continue;
-    const value = op === "remove" ? "" : String(r.value ?? "");
-    if (op !== "remove" && value === "") continue;
-    out.push({ name, op, value });
-  }
-  return out;
-}
+// Header overrides match on `requestDomains` (requests going *to* the site);
+// the privacy rules match on `initiatorDomains` (requests the site's pages make).
 
 async function nextHeaderRuleId() {
   const data = await chrome.storage.local.get("cb_header_rule_seq");
@@ -791,27 +828,6 @@ async function setHeaderRuleMap(map) {
   await chrome.storage.local.set({ cb_header_rule_map: map });
 }
 
-function buildHeaderRule(id, siteKey, kind, headers) {
-  // kind === "request" | "response"
-  const action = {
-    type: "modifyHeaders",
-    [kind === "request" ? "requestHeaders" : "responseHeaders"]: headers.map((h) =>
-      h.op === "remove"
-        ? { header: h.name, operation: "remove" }
-        : { header: h.name, operation: h.op, value: h.value }
-    ),
-  };
-  return {
-    id,
-    priority: 3, // above ADBLOCK_PAUSE_PRIORITY, or a paused site would lose its header rules
-    action,
-    condition: {
-      requestDomains: [siteKey],
-      resourceTypes: HEADER_RESOURCE_TYPES,
-    },
-  };
-}
-
 async function applySiteHeaderRules(siteKey) {
   if (!siteKey) return { applied: 0 };
   const settings = await getSite(siteKey);
@@ -819,18 +835,11 @@ async function applySiteHeaderRules(siteKey) {
 }
 
 async function syncSiteHeaderRules(siteKey, settings) {
-  const reqHeaders = sanitizeHeaderRules(settings.requestHeaders);
-  const resHeaders = sanitizeHeaderRules(settings.responseHeaders);
-
   const map = await getHeaderRuleMap();
   const oldIds = map[siteKey] || [];
   const newRules = [];
-
-  if (reqHeaders.length) {
-    newRules.push(buildHeaderRule(await nextHeaderRuleId(), siteKey, "request", reqHeaders));
-  }
-  if (resHeaders.length) {
-    newRules.push(buildHeaderRule(await nextHeaderRuleId(), siteKey, "response", resHeaders));
+  for (const rule of buildSiteRules(siteKey, settings)) {
+    newRules.push({ id: await nextHeaderRuleId(), ...rule });
   }
 
   await chrome.declarativeNetRequest.updateDynamicRules({
@@ -845,7 +854,7 @@ async function syncSiteHeaderRules(siteKey, settings) {
   }
   await setHeaderRuleMap(map);
 
-  return { applied: newRules.length, requestCount: reqHeaders.length, responseCount: resHeaders.length };
+  return { applied: newRules.length };
 }
 
 async function reapplyAllHeaderRules() {
@@ -862,12 +871,7 @@ async function reapplyAllHeaderRules() {
 
   const sites = await listSites();
   for (const { siteKey, settings } of sites) {
-    if (
-      (settings.requestHeaders && settings.requestHeaders.length) ||
-      (settings.responseHeaders && settings.responseHeaders.length)
-    ) {
-      await syncSiteHeaderRules(siteKey, settings);
-    }
+    if (siteNeedsRules(settings)) await syncSiteHeaderRules(siteKey, settings);
   }
 }
 
