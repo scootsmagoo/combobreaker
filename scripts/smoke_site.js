@@ -219,7 +219,20 @@ async function main() {
       setupUi.cmd.includes(extId) && setupUi.cmd.includes("curl") && setupErrors.length === 0 && (setupUi.stepsVisible || setupUi.state === "ok"),
       { setupUi, setupErrors }
     );
-    await setup.screenshot({ path: path.join(OUT, "setup-page.png") });
+    // OS tabs swap the command; the sign-in picker writes the shared setting.
+    await setup.click('.os-tab[data-os="mac"]');
+    const macCmd = await setup.evaluate(() => document.getElementById("cmd").textContent);
+    await setup.select("#cookies", "firefox");
+    await sleep(300);
+    const savedCookies = await setup.evaluate(async () => (await chrome.storage.sync.get("global")).global.ytdlp.cookiesFromBrowser);
+    expect(
+      "setupOsAndCookies",
+      macCmd.startsWith("curl -fsSL") && macCmd.includes("setup.sh | bash -s -- " + extId) && savedCookies === "firefox",
+      { macCmd, savedCookies }
+    );
+    await setup.screenshot({ path: path.join(OUT, "setup-page-mac.png"), fullPage: true });
+    await setup.click('.os-tab[data-os="windows"]');
+    await setup.screenshot({ path: path.join(OUT, "setup-page.png"), fullPage: true });
     await setup.close();
 
     // 6. Options UI pieces exist and the page stayed error-free.

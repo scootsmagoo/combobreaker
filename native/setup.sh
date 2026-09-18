@@ -35,6 +35,22 @@ install_pkg() { # install_pkg <command> <package>
 }
 
 step "1/3  Tools (yt-dlp, ffmpeg, Node.js)"
+if [ "$(uname)" = "Darwin" ] && ! command -v brew >/dev/null 2>&1; then
+  # Apple Silicon installs brew outside the default PATH of a fresh shell.
+  for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+    [ -x "$b" ] && eval "$("$b" shellenv)" && break
+  done
+fi
+if [ "$(uname)" = "Darwin" ] && ! command -v brew >/dev/null 2>&1; then
+  cat >&2 <<'MSG'
+Homebrew is needed to install the tools on macOS. Install it with:
+
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+then run the ComboBreaker command again.
+MSG
+  exit 1
+fi
 install_pkg yt-dlp yt-dlp
 install_pkg ffmpeg ffmpeg
 if command -v brew >/dev/null 2>&1; then install_pkg node node; else install_pkg node nodejs; fi

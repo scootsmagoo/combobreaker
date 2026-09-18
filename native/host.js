@@ -110,6 +110,13 @@ function whichAll(name) {
   return out;
 }
 
+// yt-dlp versions look like 2025.11.12 (optionally with a suffix).
+function ytdlpSupportsJsRuntimes(version) {
+  const m = /^(\d{4})\.(\d{1,2})/.exec(String(version || ""));
+  if (!m) return false;
+  return Number(m[1]) * 100 + Number(m[2]) >= 202511;
+}
+
 function candidatePaths(name) {
   const home = os.homedir();
   const exe = IS_WIN ? `${name}.exe` : name;
@@ -324,6 +331,13 @@ function handleDownload(msg) {
   args.push(...qualityToArgs(msg.quality, !!ffmpeg));
   if (msg.referer) args.push("--referer", String(msg.referer));
   if (msg.cookiesFromBrowser) args.push("--cookies-from-browser", String(msg.cookiesFromBrowser));
+  // YouTube needs an external JavaScript runtime since yt-dlp 2025.11. yt-dlp
+  // only looks for Deno by default; we are already running under Node, so
+  // offer that. Older yt-dlp builds don't know the flag, hence the version gate.
+  const extra = Array.isArray(msg.extraArgs) ? msg.extraArgs.join(" ") : String(msg.extraArgs || "");
+  if (ytdlpSupportsJsRuntimes(ytdlp.version) && !extra.includes("--js-runtimes")) {
+    args.push("--js-runtimes", `node:${process.execPath}`);
+  }
   if (Array.isArray(msg.extraArgs)) {
     for (const a of msg.extraArgs) if (typeof a === "string" && a) args.push(a);
   } else if (typeof msg.extraArgs === "string" && msg.extraArgs.trim()) {

@@ -144,3 +144,55 @@ summary { cursor: pointer; }
 a { color: var(--accent); }
 
 [hidden] { display: none !important; }
+
+/* OS tabs */
+.os-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 24px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.os-tab {
+  padding: 6px 18px;
+  border: none;
+  background: transparent;
+  color: var(--fg-dim);
+  font-weight: 600;
+}
+.os-tab.active {
+  background: var(--accent);
+  color: #06202c;
+}
+
+/* Troubleshooting */
+.help {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.help-title { font-size: 16px; margin: 0 0 4px; }
+.help details { color: var(--fg); }
+.help details p, .help details ul { color: var(--fg-dim); margin: 8px 0; }
+.help details ul { padding-left: 20px; }
+.help details li { margin-bottom: 6px; }
+.help summary { padding: 6px 0; }
+.inline-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+select {
+  font: inherit;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  color: var(--fg);
+}
+.saved { color: var(--ok); font-size: 14px; }
+.copy-small { padding: 8px 14px; }
