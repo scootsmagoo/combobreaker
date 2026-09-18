@@ -2,6 +2,7 @@ import { siteKeyFromUrl, prettySite } from "../lib/site.js";
 import { getGlobal, setGlobal } from "../lib/storage.js";
 import { initUtilities } from "./utilities.js";
 import { initSnippets } from "./snippets.js";
+import { initStorageView } from "./storage_view.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -53,6 +54,7 @@ async function init() {
   bindDialogs();
   initUtilities({ tab: STATE.tab, status });
   initSnippets({ tab: STATE.tab, status, sendMessage });
+  initStorageView({ tab: STATE.tab, siteKey: STATE.siteKey, status });
   if (STATE.tab && STATE.tab.id != null) {
     try {
       const bp = chrome.runtime.connect({ name: "browsing-popup" });

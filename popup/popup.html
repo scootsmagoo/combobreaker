@@ -103,14 +103,33 @@
 
       <!--  Cookies pane  -->
       <section id="pane-cookies" class="pane">
-        <div class="cookies-toolbar">
-          <span id="cookies-count" class="muted">—</span>
-          <button id="cookies-refresh" class="ghost-btn" title="Refresh">↻</button>
-          <button id="cookies-nuke" class="danger-btn" title="Delete every cookie for this site">Nuke cookies</button>
-          <button id="site-data-nuke" class="danger-btn" title="Cookies + localStorage + IndexedDB + Cache Storage + service workers for this site">Nuke all site data</button>
+        <div class="storage-kind-bar">
+          <div class="seg" id="storage-kind" role="radiogroup" aria-label="Which storage to show">
+            <button type="button" class="seg-btn active" data-kind="cookies">Cookies</button>
+            <button type="button" class="seg-btn" data-kind="local">Local storage</button>
+            <button type="button" class="seg-btn" data-kind="session">Session storage</button>
+          </div>
         </div>
-        <div id="cookies-list" class="cookies-list">
-          <div class="empty muted">Loading…</div>
+        <div id="cookies-view">
+          <div class="cookies-toolbar">
+            <span id="cookies-count" class="muted">—</span>
+            <button id="cookies-refresh" class="ghost-btn" title="Refresh">↻</button>
+            <button id="cookies-nuke" class="danger-btn" title="Delete every cookie for this site">Nuke cookies</button>
+            <button id="site-data-nuke" class="danger-btn" title="Cookies + localStorage + IndexedDB + Cache Storage + service workers for this site">Nuke all site data</button>
+          </div>
+          <div id="cookies-list" class="cookies-list">
+            <div class="empty muted">Loading…</div>
+          </div>
+        </div>
+        <div id="storage-view" hidden>
+          <div class="cookies-toolbar">
+            <span id="storage-count" class="muted">—</span>
+            <button id="storage-refresh" class="ghost-btn" title="Refresh">↻</button>
+            <button id="storage-add" class="ghost-btn" title="Add a key">+ Add</button>
+            <button id="storage-clear" class="danger-btn" title="Delete every key in this storage for this page">Clear</button>
+          </div>
+          <div id="storage-list" class="cookies-list"></div>
+          <div id="storage-extra" class="storage-extra muted"></div>
         </div>
       </section>
 
@@ -615,6 +634,24 @@
         <menu>
           <button value="cancel">Cancel</button>
           <button id="cookie-save" value="save">Save</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="storage-dialog">
+      <form method="dialog">
+        <h3 id="storage-dialog-title">Edit key</h3>
+        <label class="field">
+          <span>Key</span>
+          <input type="text" id="storage-key" spellcheck="false" />
+        </label>
+        <label class="field">
+          <span>Value</span>
+          <textarea id="storage-value" rows="8" spellcheck="false"></textarea>
+        </label>
+        <menu>
+          <button value="cancel">Cancel</button>
+          <button id="storage-save" value="save">Save</button>
         </menu>
       </form>
     </dialog>

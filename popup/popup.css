@@ -1245,3 +1245,10 @@ dialog button[value="apply"], dialog button[value="save"], dialog button[value="
 /* "N blocked on this page" under the ad blocking rows */
 .adblock-summary { padding: 0 10px 6px; font-size: 11px; line-height: 1.45; }
 .adblock-summary b { color: var(--fg); font-weight: 600; }
+
+/* Cookies tab: cookies / localStorage / sessionStorage switch */
+.storage-kind-bar { padding: 8px 12px 0; background: var(--bg-2); }
+.storage-kind-bar .seg { display: flex; }
+.storage-kind-bar .seg-btn { flex: 1; }
+.storage-extra { padding: 6px 12px; font-size: 11px; line-height: 1.4; word-break: break-word; }
+.storage-extra:empty { display: none; }
