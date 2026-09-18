@@ -18,6 +18,8 @@
         srcLine.textContent = `${payload.pageTitle || "Untitled"} — ${payload.pageUrl}`;
       }
 
+      displayMeta(payload.meta);
+
       // Display JSON-LD blocks
       displayJsonLd(payload);
 
@@ -32,6 +34,103 @@
     } catch (e) {
       console.error("Failed to load structured data:", e);
       document.getElementById("sd-fallback").hidden = false;
+    }
+  }
+
+  // Everything in `meta` is page-controlled text: textContent only.
+  function metaRow(table, label, value, showLen) {
+    const tr = table.insertRow();
+    const th = document.createElement("th");
+    th.textContent = label;
+    const td = tr.insertCell();
+    tr.prepend(th);
+    if (!value) {
+      td.textContent = "—";
+      td.className = "muted";
+      return;
+    }
+    td.textContent = value;
+    if (showLen) {
+      const len = document.createElement("span");
+      len.className = "len";
+      len.textContent = `${value.length} chars`;
+      td.appendChild(len);
+    }
+  }
+
+  // [level, text]; thresholds are the usual search-snippet rules of thumb.
+  function metaChecks(meta) {
+    const checks = [];
+    const t = meta.title.length;
+    checks.push(!t ? ["bad", "No title"] : t > 60 ? ["warn", `Title is long (${t})`] : t < 10 ? ["warn", `Title is short (${t})`] : ["ok", "Title length"]);
+    const d = meta.description.length;
+    checks.push(!d ? ["bad", "No meta description"] : d > 160 ? ["warn", `Description is long (${d})`] : d < 50 ? ["warn", `Description is short (${d})`] : ["ok", "Description length"]);
+    const h1 = meta.headingCounts.h1;
+    checks.push(h1 === 1 ? ["ok", "One h1"] : h1 === 0 ? ["bad", "No h1"] : ["warn", `${h1} h1 headings`]);
+    checks.push(meta.canonical ? ["ok", "Canonical set"] : ["warn", "No canonical link"]);
+    checks.push(meta.lang ? ["ok", "lang attribute"] : ["warn", "No lang attribute"]);
+    checks.push(meta.viewport ? ["ok", "Viewport meta"] : ["warn", "No viewport meta"]);
+    if (/noindex/i.test(meta.robots)) checks.push(["bad", "robots: noindex"]);
+    const og = new Set(meta.og.map((x) => x.key));
+    const missingOg = ["og:title", "og:description", "og:image"].filter((k) => !og.has(k));
+    checks.push(missingOg.length ? ["warn", `Missing ${missingOg.join(", ")}`] : ["ok", "Open Graph basics"]);
+    const { total, missingAlt } = meta.images;
+    checks.push(missingAlt ? ["warn", `${missingAlt} of ${total} images lack alt`] : ["ok", total ? "All images have alt" : "No images"]);
+    return checks;
+  }
+
+  function displayMeta(meta) {
+    if (!meta) return;
+    document.getElementById("meta-section").hidden = false;
+
+    const checksEl = document.getElementById("meta-checks");
+    for (const [level, text] of metaChecks(meta)) {
+      const chip = document.createElement("span");
+      chip.className = `check ${level}`;
+      chip.textContent = text;
+      checksEl.appendChild(chip);
+    }
+
+    const table = document.getElementById("meta-table");
+    metaRow(table, "Title", meta.title, true);
+    metaRow(table, "Description", meta.description, true);
+    metaRow(table, "Canonical", meta.canonical);
+    metaRow(table, "Robots", meta.robots);
+    metaRow(table, "Language", meta.lang);
+    metaRow(table, "Viewport", meta.viewport);
+    const hc = meta.headingCounts;
+    metaRow(table, "Headings", Object.keys(hc).filter((k) => hc[k]).map((k) => `${k} ×${hc[k]}`).join("  "));
+    const l = meta.links;
+    metaRow(table, "Links", `${l.total} total · ${l.internal} internal · ${l.external} external · ${l.nofollow} nofollow`);
+    if (meta.hreflang.length) metaRow(table, "hreflang", meta.hreflang.map((x) => x.key).join(", "));
+
+    const social = document.getElementById("meta-social-table");
+    const tags = [...meta.og, ...meta.twitter];
+    document.getElementById("meta-social-count").textContent = `(${tags.length})`;
+    for (const tag of tags) metaRow(social, tag.key, tag.value);
+    if (!tags.length) metaRow(social, "None found", "");
+
+    const outline = document.getElementById("meta-outline-list");
+    document.getElementById("meta-outline-count").textContent = `(${meta.headings.length})`;
+    for (const h of meta.headings) {
+      const row = document.createElement("div");
+      row.style.paddingLeft = `${(h.level - 1) * 18}px`;
+      const tag = document.createElement("span");
+      tag.className = "h-tag";
+      tag.textContent = `h${h.level}`;
+      row.append(tag, h.text || "(empty)");
+      outline.appendChild(row);
+    }
+
+    if (meta.images.missingAlt) {
+      document.getElementById("meta-alt").hidden = false;
+      document.getElementById("meta-alt-count").textContent = `(${meta.images.missingAlt})`;
+      const list = document.getElementById("meta-alt-list");
+      for (const src of meta.images.samples) {
+        const li = document.createElement("li");
+        li.textContent = src || "(no src)";
+        list.appendChild(li);
+      }
     }
   }
 

@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Structured Data · ComboBreaker</title>
+    <title>SEO & Structured Data · ComboBreaker</title>
     <link rel="icon" href="../icons/icon32.png" />
     <link rel="stylesheet" href="structured_data.css" />
   </head>
@@ -10,12 +10,21 @@
     <header>
       <div class="brand">
         <img src="../icons/icon32.png" alt="" width="22" height="22" />
-        <span>ComboBreaker · Structured Data / JSON-LD</span>
+        <span>ComboBreaker · SEO / Structured Data</span>
       </div>
     </header>
     <p id="source-line" class="source muted"></p>
     
     <main id="sd-main">
+      <section id="meta-section" hidden>
+        <h2>Meta &amp; SEO</h2>
+        <div id="meta-checks"></div>
+        <table class="meta-table" id="meta-table"></table>
+        <details id="meta-social"><summary>Open Graph &amp; Twitter tags <span id="meta-social-count"></span></summary><table class="meta-table" id="meta-social-table"></table></details>
+        <details id="meta-outline"><summary>Heading outline <span id="meta-outline-count"></span></summary><div id="meta-outline-list"></div></details>
+        <details id="meta-alt" hidden><summary>Images without alt text <span id="meta-alt-count"></span></summary><ul id="meta-alt-list"></ul></details>
+      </section>
+
       <section id="jsonld-section">
         <h2>JSON-LD Blocks <span id="jsonld-count"></span></h2>
         <div id="jsonld-container"></div>

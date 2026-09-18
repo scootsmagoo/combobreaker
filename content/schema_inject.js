@@ -43,6 +43,78 @@
     return s === "application/ld+json" || s === "text/json" || s.indexOf("ld+json") !== -1;
   }
 
+  var MAX_HEADINGS = 200;
+  var MAX_SAMPLES = 12;
+
+  function clip(v, n) {
+    var t = String(v == null ? "" : v).replace(/\s+/g, " ").trim();
+    return t.length > n ? t.slice(0, n) + "…" : t;
+  }
+
+  // Head tags, heading outline and image/link counts for the viewer's
+  // "Meta & SEO" section. DOM only: no link is ever fetched.
+  function extractMeta() {
+    var meta = {
+      title: clip(document.title, 500),
+      description: "",
+      canonical: "",
+      robots: "",
+      lang: document.documentElement.getAttribute("lang") || "",
+      viewport: "",
+      og: [],
+      twitter: [],
+      hreflang: [],
+      headings: [],
+      headingCounts: { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 },
+      images: { total: 0, missingAlt: 0, samples: [] },
+      links: { total: 0, internal: 0, external: 0, nofollow: 0 },
+    };
+    var metas = document.getElementsByTagName("meta");
+    for (var i = 0; i < metas.length; i++) {
+      var m = metas[i];
+      var name = (m.getAttribute("name") || "").toLowerCase();
+      var prop = (m.getAttribute("property") || "").toLowerCase();
+      var content = clip(m.getAttribute("content"), 1000);
+      if (name === "description" && !meta.description) meta.description = content;
+      else if (name === "robots" && !meta.robots) meta.robots = content;
+      else if (name === "viewport" && !meta.viewport) meta.viewport = content;
+      if (prop.indexOf("og:") === 0 || prop.indexOf("article:") === 0) meta.og.push({ key: prop, value: content });
+      else if (name.indexOf("twitter:") === 0 || prop.indexOf("twitter:") === 0) meta.twitter.push({ key: name || prop, value: content });
+    }
+    var links = document.getElementsByTagName("link");
+    for (var l = 0; l < links.length; l++) {
+      var rel = (links[l].getAttribute("rel") || "").toLowerCase();
+      if (rel === "canonical" && !meta.canonical) meta.canonical = links[l].href || "";
+      else if (rel === "alternate" && links[l].getAttribute("hreflang") && meta.hreflang.length < 50) {
+        meta.hreflang.push({ key: links[l].getAttribute("hreflang"), value: links[l].href || "" });
+      }
+    }
+    var hs = document.querySelectorAll("h1, h2, h3, h4, h5, h6");
+    for (var h = 0; h < hs.length; h++) {
+      var tag = hs[h].tagName.toLowerCase();
+      meta.headingCounts[tag] += 1;
+      if (meta.headings.length < MAX_HEADINGS) meta.headings.push({ level: Number(tag.charAt(1)), text: clip(hs[h].textContent, 160) });
+    }
+    var imgs = document.images;
+    meta.images.total = imgs.length;
+    for (var g = 0; g < imgs.length; g++) {
+      // alt="" is a deliberate "decorative" marker; only a missing attribute counts.
+      if (imgs[g].hasAttribute("alt")) continue;
+      meta.images.missingAlt += 1;
+      if (meta.images.samples.length < MAX_SAMPLES) meta.images.samples.push(clip(imgs[g].currentSrc || imgs[g].src, 300));
+    }
+    var as = document.querySelectorAll("a[href]");
+    meta.links.total = as.length;
+    for (var a = 0; a < as.length; a++) {
+      var host = as[a].hostname;
+      if (!host || !/^https?:$/.test(as[a].protocol)) continue;
+      if (host === location.hostname) meta.links.internal += 1;
+      else meta.links.external += 1;
+      if (/\bnofollow\b/i.test(as[a].getAttribute("rel") || "")) meta.links.nofollow += 1;
+    }
+    return meta;
+  }
+
   globalThis.__cbExtractStructuredData = function () {
     var out = {
       ok: true,
@@ -120,6 +192,12 @@
       }
     }
     out.rdfa.typofs = Array.from(rSet);
+
+    try {
+      out.meta = extractMeta();
+    } catch (_e3) {
+      out.meta = null;
+    }
 
     return out;
   };

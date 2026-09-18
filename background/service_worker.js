@@ -1415,6 +1415,7 @@ async function openStructuredDataView(tabIdOverride) {
     jsonld: r.jsonld || [],
     microdata: r.microdata || { itemscopeCount: 0, itemtypes: [] },
     rdfa: r.rdfa || { elementCount: 0, typofs: [] },
+    meta: r.meta || null,
   };
   try {
     await chrome.storage.session.set({ [STRUCTURED_DATA_SESSION_KEY]: payload });

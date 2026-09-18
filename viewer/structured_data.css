@@ -232,3 +232,21 @@ button.secondary:hover {
   background: #d4edda !important;
   color: #155724 !important;
 }
+
+/* Meta & SEO */
+#meta-checks { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.check { padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+.check.ok { background: #e6f4ea; color: #1e6b34; }
+.check.warn { background: #fef3d6; color: #8a5a00; }
+.check.bad { background: #fde7e7; color: #a12020; }
+.meta-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.meta-table th { text-align: left; vertical-align: top; width: 170px; padding: 6px 12px 6px 0; color: #666; font-weight: 500; white-space: nowrap; }
+.meta-table td { padding: 6px 0; word-break: break-word; }
+.meta-table tr + tr th, .meta-table tr + tr td { border-top: 1px solid #eee; }
+.meta-table .len { color: #999; margin-left: 6px; font-size: 12px; }
+#meta-section details { margin-top: 14px; }
+#meta-section summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+#meta-section summary span { color: #999; font-weight: 400; }
+#meta-outline-list { margin-top: 8px; font-size: 13px; line-height: 1.7; }
+#meta-outline-list .h-tag { display: inline-block; width: 26px; color: #667eea; font-weight: 600; font-size: 11px; }
+#meta-alt-list { font-size: 12px; word-break: break-all; color: #666; }
