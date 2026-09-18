@@ -49,6 +49,13 @@ function Fetch($url, $dest) {
   Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing
 }
 function Sha256($f) { (Get-FileHash -Algorithm SHA256 -Path $f).Hash.ToLower() }
+# Text of a URL. Windows PowerShell hands back byte[] for octet-stream bodies
+# (GitHub release assets such as checksum lists), so decode those.
+function WebText($u) {
+  $c = (Invoke-WebRequest -Uri $u -UseBasicParsing).Content
+  if ($c -is [byte[]]) { $c = [System.Text.Encoding]::UTF8.GetString($c) }
+  return [string]$c
+}
 function Runs($exe, $argv) {
   try { $null = & $exe @argv 2>&1; return ($LASTEXITCODE -eq 0) } catch { return $false }
 }
@@ -93,8 +100,20 @@ if (Runs $Py @('--version')) {
   if (-not $asset) { $asset = "https://github.com/astral-sh/python-build-standalone/releases/download/20260901/cpython-3.13.15%2B20260901-$PbsTriple-install_only.tar.gz" }
   $tgz = Join-Path $Tmp 'python.tar.gz'
   Fetch $asset $tgz
+  # Older releases publish <asset>.sha256; newer ones only a per-release
+  # SHA256SUMS (same fallback as install.sh).
   $want = $null
-  try { $want = ((Invoke-WebRequest -Uri "$asset.sha256" -UseBasicParsing).Content.Trim() -split '\s+')[0] } catch {}
+  try { $want = ((WebText "$asset.sha256").Trim() -split '\s+')[0] } catch {}
+  if (-not $want) {
+    try {
+      $aname = [uri]::UnescapeDataString(($asset -split '/')[-1])
+      $sums = ($asset.Substring(0, $asset.LastIndexOf('/'))) + '/SHA256SUMS'
+      foreach ($l in ((WebText $sums) -split "`n")) {
+        $p = $l.Trim() -split '\s+'
+        if ($p.Count -ge 2 -and $p[-1].TrimStart('*') -eq $aname) { $want = $p[0]; break }
+      }
+    } catch {}
+  }
   if (-not $want) { throw 'could not fetch the Python checksum; try again' }
   if ((Sha256 $tgz) -ne $want.ToLower()) { throw 'Python download failed its checksum; try again' }
   $pyTmp = Join-Path $Tmp 'py'
@@ -113,7 +132,7 @@ if ((Test-Path $Pyz) -and (Runs $Py @($Pyz, '--version'))) {
 } else {
   $tmpPyz = Join-Path $Tmp 'yt-dlp'
   Fetch 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp' $tmpPyz
-  $sums = (Invoke-WebRequest -Uri 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS' -UseBasicParsing).Content
+  $sums = WebText 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS'
   $line = $sums -split "`n" | Where-Object { ($_.Trim() -split '\s+')[-1] -eq 'yt-dlp' } | Select-Object -First 1
   if (-not $line) { throw 'yt-dlp checksum list has no entry for the zip build' }
   $want = ($line.Trim() -split '\s+')[0]
