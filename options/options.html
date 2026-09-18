@@ -20,11 +20,11 @@
         <section class="side-section">
           <h2>Global</h2>
           <label class="row">
-            <span>Adblock (basic)</span>
+            <span title="Blocks requests to about 40 of the biggest ad and tracking companies (Google Ads and Analytics, Facebook, Criteo, Taboola, Hotjar and similar) on every site. It does not hide empty ad boxes and does not stop YouTube or same-site ads. Keep uBlock Origin Lite alongside if you want full blocking.">Block ads &amp; trackers (basic list)</span>
             <input type="checkbox" id="g-adblock" />
           </label>
           <label class="row">
-            <span>JSON pretty-print</span>
+            <span title="When a tab shows raw JSON (an API response), replaces the wall of text with a collapsible, colour-coded viewer. Normal web pages are never touched.">JSON pretty-print</span>
             <input type="checkbox" id="g-json" />
           </label>
         </section>
@@ -32,7 +32,7 @@
         <section class="side-section">
           <h2>Dark mode</h2>
           <label class="row">
-            <span>Enabled (all sites)</span>
+            <span title="Recolours every website with a dark theme (Dark Reader). Use the This site buttons below to make an exception for the page you are on.">Enabled (all sites)</span>
             <input type="checkbox" id="g-darkmode" />
           </label>
           <div class="dark-tune">
@@ -218,13 +218,15 @@
           </div>
         </header>
 
-        <div id="pane-css" class="pane">
+        <div id="pane-css" class="pane pane-code">
+          <p class="hint pane-hint">Your own styling for this site, applied automatically on every visit: hide a banner, widen a column, change a font. The CSS enabled switch above only turns them on or off; it never deletes them.</p>
           <textarea id="css-area" spellcheck="false" placeholder="/* Your CSS for this site */
 body { font-family: 'Iosevka', monospace; }
 "></textarea>
         </div>
 
         <div id="pane-js" class="pane" hidden>
+          <p class="hint pane-hint">Your own script for this site, run automatically on every visit: auto-close a popup, add a keyboard shortcut, tweak the page. For a script you only want to run now and then, use Tools > Snippets instead.</p>
           <p class="hint us-status" id="us-status" hidden></p>
           <textarea id="js-area" spellcheck="false" placeholder="// Your JS for this site (runs in the page world)
 console.log('hello from ComboBreaker');

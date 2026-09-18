@@ -455,3 +455,6 @@ header a { color: var(--accent); }
 #pane-js {
   flex-direction: column;
 }
+
+.pane-code { flex-direction: column; }
+.pane-hint { margin: 0; padding: 8px 12px 0; }

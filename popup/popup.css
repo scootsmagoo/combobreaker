@@ -1177,3 +1177,49 @@ dialog button[value="apply"], dialog button[value="save"], dialog button[value="
   font-size: 11px;
 }
 .snip-editor[hidden] { display: none; }
+
+/* "?" help tips. The bubble spans the popup width so it can't overflow it. */
+.row, .globals .row { position: relative; }
+.tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 4px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  color: var(--fg-dim);
+  font: 600 9px/1 -apple-system, "Segoe UI", sans-serif;
+  font-style: normal;
+  cursor: help;
+  vertical-align: 1px;
+}
+.tip:hover, .tip:focus { color: var(--accent); border-color: var(--accent); outline: none; }
+.tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: calc(100% - 2px);
+  z-index: 50;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #0b0e17;
+  color: var(--fg);
+  font: 400 12px/1.45 -apple-system, "Segoe UI", sans-serif;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.1s ease;
+}
+.tip:hover::after, .tip:focus::after { opacity: 1; visibility: visible; }
+/* Rows at the bottom of the popup open upwards. */
+.globals .tip::after { top: auto; bottom: calc(100% - 2px); }
+.site-code-state { font-size: 11px; margin-left: 4px; }
+.toggles .row:last-child .tip::after { top: auto; bottom: calc(100% - 2px); }

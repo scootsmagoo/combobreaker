@@ -92,6 +92,9 @@ function renderSiteToggles() {
   $("t-js").checked = !!STATE.jsEnabled;
   $("t-css").checked = !!s.cssEnabled;
   $("t-userjs").checked = !!s.jsEnabled;
+  // A switch with nothing behind it does nothing; say so.
+  $("t-css-state").textContent = s.css && s.css.trim() ? "" : "nothing written yet";
+  $("t-userjs-state").textContent = s.js && s.js.trim() ? "" : "nothing written yet";
   renderDarkOverride(s.darkMode);
 }
 
@@ -110,7 +113,19 @@ function disableSiteToggles(reason) {
   status(reason, "err");
 }
 
+// "?" tips live inside <label> rows; a click must not flip the switch.
+function bindTips() {
+  document.querySelectorAll(".tip").forEach((t) => {
+    t.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      t.focus();
+    });
+  });
+}
+
 function bindSitePane() {
+  bindTips();
   $("open-options").addEventListener("click", () => chrome.runtime.openOptionsPage());
 
   $("t-js").addEventListener("change", async (e) => {
@@ -125,14 +140,16 @@ function bindSitePane() {
     if (!STATE.siteKey) return;
     const enabled = e.target.checked;
     await sendMessage({ type: "set-site", siteKey: STATE.siteKey, patch: { cssEnabled: enabled } });
-    status(`Custom CSS ${enabled ? "on" : "off"}. Reload to apply.`, "ok");
+    const empty = !(STATE.settings && STATE.settings.css && STATE.settings.css.trim());
+    status(enabled && empty ? "Custom CSS is on, but nothing is written yet. Click Edit CSS." : `Custom CSS ${enabled ? "on" : "off"}.`, "ok");
   });
 
   $("t-userjs").addEventListener("change", async (e) => {
     if (!STATE.siteKey) return;
     const enabled = e.target.checked;
     await sendMessage({ type: "set-site", siteKey: STATE.siteKey, patch: { jsEnabled: enabled } });
-    status(`Custom JS ${enabled ? "on" : "off"}. Reload to apply.`, "ok");
+    const empty = !(STATE.settings && STATE.settings.js && STATE.settings.js.trim());
+    status(enabled && empty ? "Custom JS is on, but nothing is written yet. Click Edit JS." : `Custom JS ${enabled ? "on" : "off"}. Reload the page to apply.`, "ok");
   });
 
   document.querySelectorAll('[data-tool="edit-css"], [data-tool="edit-js"]').forEach((b) =>

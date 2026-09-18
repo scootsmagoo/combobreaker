@@ -32,11 +32,11 @@
       <section id="pane-site" class="pane active">
         <div class="dark-section">
           <label class="row">
-            <span>Dark mode <em class="muted">(all sites)</em></span>
+            <span>Dark mode <em class="muted">(all sites)</em> <i class="tip" tabindex="0" role="note" aria-label="Recolours every website with a dark theme (Dark Reader). Use the This site buttons below to make an exception for the page you are on." data-tip="Recolours every website with a dark theme (Dark Reader). Use the This site buttons below to make an exception for the page you are on.">?</i></span>
             <input type="checkbox" id="t-darkmode-global" />
           </label>
           <div class="row sm site-override">
-            <span>This site</span>
+            <span>This site <i class="tip" tabindex="0" role="note" aria-label="Auto follows the switch above. On or Off forces dark mode for this site only, whatever the switch above says." data-tip="Auto follows the switch above. On or Off forces dark mode for this site only, whatever the switch above says.">?</i></span>
             <div class="seg" role="radiogroup" aria-label="Per-site dark mode">
               <button type="button" class="seg-btn" data-val="">Auto</button>
               <button type="button" class="seg-btn" data-val="on">On</button>
@@ -49,15 +49,15 @@
         </div>
         <div class="toggles">
           <label class="row">
-            <span>JavaScript</span>
+            <span>Allow JavaScript <i class="tip" tabindex="0" role="note" aria-label="Off blocks ALL of this site's own scripts, using Chrome's built-in per-site setting. It kills most popups, paywall overlays and trackers, but menus, video players and logins usually stop working too. The tab reloads when you flip it." data-tip="Off blocks ALL of this site's own scripts, using Chrome's built-in per-site setting. It kills most popups, paywall overlays and trackers, but menus, video players and logins usually stop working too. The tab reloads when you flip it.">?</i></span>
             <input type="checkbox" id="t-js" />
           </label>
           <label class="row">
-            <span>Custom CSS</span>
+            <span>Custom CSS <i class="tip" tabindex="0" role="note" aria-label="Your own styling for this site, applied automatically on every visit: hide a banner, widen a column, change a font. Write the rules under Edit CSS. This switch only turns them on or off; it never deletes them." data-tip="Your own styling for this site, applied automatically on every visit: hide a banner, widen a column, change a font. Write the rules under Edit CSS. This switch only turns them on or off; it never deletes them.">?</i> <em class="muted site-code-state" id="t-css-state"></em></span>
             <input type="checkbox" id="t-css" />
           </label>
           <label class="row">
-            <span>Custom JS</span>
+            <span>Custom JS <i class="tip" tabindex="0" role="note" aria-label="Your own script for this site, run automatically on every visit: auto-close a popup, add a keyboard shortcut, tweak the page. Write it under Edit JS. For a script you only want to run now and then, use Tools > Snippets instead." data-tip="Your own script for this site, run automatically on every visit: auto-close a popup, add a keyboard shortcut, tweak the page. Write it under Edit JS. For a script you only want to run now and then, use Tools > Snippets instead.">?</i> <em class="muted site-code-state" id="t-userjs-state"></em></span>
             <input type="checkbox" id="t-userjs" />
           </label>
         </div>
@@ -477,11 +477,11 @@
 
         <div class="globals">
           <label class="row sm">
-            <span>Adblock (basic)</span>
+            <span>Block ads &amp; trackers <em class="muted">(basic list)</em> <i class="tip" tabindex="0" role="note" aria-label="Blocks requests to about 40 of the biggest ad and tracking companies (Google Ads and Analytics, Facebook, Criteo, Taboola, Hotjar and similar) on every site. It does not hide empty ad boxes and does not stop YouTube or same-site ads. Keep uBlock Origin Lite alongside if you want full blocking." data-tip="Blocks requests to about 40 of the biggest ad and tracking companies (Google Ads and Analytics, Facebook, Criteo, Taboola, Hotjar and similar) on every site. It does not hide empty ad boxes and does not stop YouTube or same-site ads. Keep uBlock Origin Lite alongside if you want full blocking.">?</i></span>
             <input type="checkbox" id="g-adblock" />
           </label>
           <label class="row sm">
-            <span>JSON pretty-print</span>
+            <span>JSON pretty-print <i class="tip" tabindex="0" role="note" aria-label="When a tab shows raw JSON (an API response), replaces the wall of text with a collapsible, colour-coded viewer. Normal web pages are never touched." data-tip="When a tab shows raw JSON (an API response), replaces the wall of text with a collapsible, colour-coded viewer. Normal web pages are never touched.">?</i></span>
             <input type="checkbox" id="g-json" />
           </label>
         </div>
