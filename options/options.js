@@ -98,6 +98,7 @@ function parseHash() {
   const h = location.hash.replace(/^#/, "");
   if (!h) return;
   if (h === "downloads") {
+    $("bridge-install").open = true;
     $("downloads").scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
@@ -515,8 +516,19 @@ function bindDownloads(g) {
   $("y-cookies").addEventListener("change", (e) => pushY({ cookiesFromBrowser: e.target.value }));
   $("y-extra").addEventListener("input", (e) => pushY({ extraArgs: e.target.value }));
 
-  $("open-setup").addEventListener("click", () => {
-    chrome.runtime.sendMessage({ type: "open-setup" }).catch(() => {});
+  const id = chrome.runtime.id;
+  $("ext-id").textContent = id;
+  $("install-cmd").textContent = `powershell -ExecutionPolicy Bypass -File .\\native\\install.ps1 -ExtensionId ${id}`;
+  document.querySelectorAll("code[data-copy]").forEach((c) => {
+    c.title = "Click to copy";
+    c.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(c.textContent);
+        toast("Copied", "ok");
+      } catch (e) {
+        toast(`Copy failed: ${e.message}`, "err");
+      }
+    });
   });
 
   $("bridge-recheck").addEventListener("click", () => checkBridge(true));
@@ -536,16 +548,16 @@ async function checkBridge(force) {
   } catch (e) {
     res = { available: false, error: String(e.message || e) };
   }
-  $("open-setup").hidden = !!(res.available && res.ffmpeg);
   if (res.available) {
     dot.className = `bridge-dot ${res.ffmpeg ? "ok" : "warn"}`;
     const yt = res.ytdlp || {};
     const ff = res.ffmpeg;
     text.textContent = `Connected · yt-dlp ${yt.version || ""} (${yt.path || "?"})` + (ff ? ` · ffmpeg ${ff.version || ""}` : " · ffmpeg NOT found: video+audio can't be merged");
+    if (!$("bridge-install").open && location.hash !== "#downloads") $("bridge-install").open = false;
   } else {
     dot.className = "bridge-dot err";
-    text.textContent = "Not set up yet";
-    text.title = res.error || "";
+    text.textContent = `Not connected: ${res.error || "unknown"}`;
+    $("bridge-install").open = true;
   }
 }
 

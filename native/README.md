@@ -1,11 +1,5 @@
 # ComboBreaker yt-dlp bridge
 
-> **Quick install:** open ComboBreaker → Media tab → **Set up** (or Options → **Set up video downloads…**).
-> The page shows one command to paste into a terminal; it runs `setup.ps1` (Windows) or `setup.sh`
-> (macOS / Linux) from this folder, which installs yt-dlp, ffmpeg and Node.js if missing, copies
-> `host.js` into your user profile and registers it with your browsers. The manual steps below are
-> only needed if you want to run the host from a source checkout (`install.ps1` / `install.sh`).
-
 A tiny [native messaging host](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging)
 that lets the extension run a **locally installed** `yt-dlp` (and `ffmpeg`).
 With it, the on-page download badge and the Media tab can download YouTube,

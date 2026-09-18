@@ -131,8 +131,6 @@ async function handleMessage(msg, sender) {
       // Also re-syncs, so flipping "Allow User Scripts" takes effect as soon
       // as the options page is opened.
       return { ...(await syncUserScripts()), available: userScriptsAvailable() };
-    case "open-setup":
-      return await openSetupPage();
     case "open-options":
       return await openOptionsSection(msg.section);
     case "overlay-list-all":
@@ -1092,19 +1090,6 @@ async function overlayListAllFrames(tabId) {
   // Top frame first, then document order within each frame.
   out.sort((a, b) => (a.frameId === 0 ? -1 : b.frameId === 0 ? 1 : a.frameId - b.frameId));
   return out;
-}
-
-// The dead-simple "install the download helper" page. Reuses an open one.
-async function openSetupPage() {
-  const url = chrome.runtime.getURL("setup/setup.html");
-  const [existing] = await chrome.tabs.query({ url });
-  if (existing) {
-    await chrome.tabs.update(existing.id, { active: true });
-    if (existing.windowId != null) await chrome.windows.update(existing.windowId, { focused: true });
-    return { tabId: existing.id };
-  }
-  const tab = await chrome.tabs.create({ url });
-  return { tabId: tab.id };
 }
 
 async function openOptionsSection(section) {

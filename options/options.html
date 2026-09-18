@@ -96,14 +96,29 @@
             <span id="bridge-text">Checking…</span>
             <button type="button" id="bridge-recheck" class="ghost-btn" title="Re-check">↻</button>
           </div>
-          <button type="button" id="open-setup" class="primary-btn setup-btn">Set up video downloads…</button>
           <p class="hint">
-            YouTube and a few other sites need a small helper on your computer.
-            The setup page installs it with one command.
+            One-click YouTube, DASH and split-audio HLS downloads by running a
+            locally installed <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noopener">yt-dlp</a>
+            (+ <a href="https://ffmpeg.org/" target="_blank" rel="noopener">ffmpeg</a>) through Chrome's native messaging. Nothing leaves your machine.
           </p>
+          <details class="bridge-install" id="bridge-install">
+            <summary>Install / repair the bridge</summary>
+            <ol class="hint steps">
+              <li>Install the tools (Windows):
+                <code class="cmd" data-copy>winget install yt-dlp.yt-dlp Gyan.FFmpeg OpenJS.NodeJS.LTS</code>
+              </li>
+              <li>From the ComboBreaker source folder, register the host for this extension ID
+                (<code id="ext-id">…</code>):
+                <code class="cmd" id="install-cmd" data-copy>…</code>
+              </li>
+              <li>Fully quit and relaunch the browser, then hit ↻ above.</li>
+            </ol>
+            <p class="hint">
+              macOS / Linux: <code>./native/install.sh &lt;extension-id&gt;</code>.
+              Remove with <code>native/uninstall.ps1</code>. Details in <code>native/README.md</code>.
+            </p>
+          </details>
 
-          <details class="bridge-advanced">
-            <summary>Advanced</summary>
           <div class="bridge-fields">
             <label class="field">
               <span>Save to folder</span>
@@ -151,7 +166,6 @@
               must be fully closed for yt-dlp to read its cookie DB on Windows.
             </p>
           </div>
-          </details>
         </section>
 
         <section class="side-section">

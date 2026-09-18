@@ -201,27 +201,6 @@ async function main() {
     await popup.screenshot({ path: path.join(OUT, "site-popup-snippets.png") });
     await popup.close();
 
-    // 5d. Setup page: one command carrying this install's extension id.
-    const setup = await browser.newPage();
-    const setupErrors = [];
-    setup.on("console", (m) => m.type() === "error" && setupErrors.push(m.text()));
-    setup.on("pageerror", (e) => setupErrors.push(String(e)));
-    await setup.goto(`chrome-extension://${extId}/setup/setup.html`, { waitUntil: "load" });
-    await sleep(1500);
-    const setupUi = await setup.evaluate(() => ({
-      status: document.getElementById("status-text").textContent,
-      state: document.getElementById("status").dataset.state,
-      cmd: document.getElementById("cmd").textContent,
-      stepsVisible: !document.getElementById("steps").hidden,
-    }));
-    expect(
-      "setupPage",
-      setupUi.cmd.includes(extId) && setupUi.cmd.includes("curl") && setupErrors.length === 0 && (setupUi.stepsVisible || setupUi.state === "ok"),
-      { setupUi, setupErrors }
-    );
-    await setup.screenshot({ path: path.join(OUT, "setup-page.png") });
-    await setup.close();
-
     // 6. Options UI pieces exist and the page stayed error-free.
     await opts.reload({ waitUntil: "load" });
     await sleep(600);

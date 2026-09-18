@@ -20,7 +20,6 @@ const INCLUDE = [
   "options",
   "popup",
   "rules",
-  "setup",
   "tools",
   "vendor",
   "viewer",
