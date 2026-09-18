@@ -1223,3 +1223,7 @@ dialog button[value="apply"], dialog button[value="save"], dialog button[value="
 .globals .tip::after { top: auto; bottom: calc(100% - 2px); }
 .site-code-state { font-size: 11px; margin-left: 4px; }
 .toggles .row:last-child .tip::after { top: auto; bottom: calc(100% - 2px); }
+
+/* Ad blocking level + per-site pause */
+.adblock-section .adblock-level { cursor: default; }
+.row.dimmed { opacity: 0.45; }

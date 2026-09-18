@@ -111,3 +111,36 @@ test("effectiveDarkModeFor: site override beats global", () => {
   assert.equal(effectiveDarkModeFor({ darkMode: { enabled: false } }, { darkMode: "on" }), true);
   assert.equal(effectiveDarkModeFor(on, { darkMode: null }), true);
 });
+
+test("adblockLevel: derived from the old boolean, and keeps adblockEnabled in step", async () => {
+  reset({ global: { adblockEnabled: false } });
+  let g = await getGlobal();
+  assert.equal(g.adblockLevel, "off");
+  assert.equal(g.adblockEnabled, false);
+
+  reset({ global: { adblockEnabled: true } });
+  assert.equal((await getGlobal()).adblockLevel, "basic");
+
+  reset();
+  assert.equal((await getGlobal()).adblockLevel, "basic");
+  g = await setGlobal({ adblockLevel: "strong" });
+  assert.equal(g.adblockLevel, "strong");
+  assert.equal(g.adblockEnabled, true);
+  g = await setGlobal({ adblockLevel: "nonsense" });
+  assert.equal(g.adblockLevel, "basic");
+});
+
+test("adblockLevel: legacy setGlobal({adblockEnabled}) callers still work", async () => {
+  reset();
+  await setGlobal({ adblockLevel: "strong" });
+  assert.equal((await setGlobal({ adblockEnabled: false })).adblockLevel, "off");
+  assert.equal((await setGlobal({ adblockEnabled: true })).adblockLevel, "basic");
+});
+
+test("adblockPaused keeps a site entry alive and round-trips", async () => {
+  reset();
+  await setSite("p.com", { adblockPaused: true });
+  assert.equal((await getSite("p.com")).adblockPaused, true);
+  await setSite("p.com", { adblockPaused: false });
+  assert.deepEqual(chrome.storage.sync._dump(), {});
+});

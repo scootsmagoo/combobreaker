@@ -60,3 +60,10 @@ cp node_modules/turndown/lib/turndown.browser.umd.js vendor/turndown.js
 ```
 
 Then update the version in this file.
+
+## Peter Lowe's ad and tracking server list (data, not code)
+
+- Used for: `rules/strong_block.json` (the "Strong" blocking level)
+- Source: https://pgl.yoyo.org/adservers/
+- Regenerate: `node scripts/update_blocklist.js` (fetches at build time only; the extension never contacts the site). `rules/strong_block.meta.json` records the date and domain count.
+- License: free to use per the list's site; attribution kept here and in the README.

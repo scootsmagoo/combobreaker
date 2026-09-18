@@ -22,7 +22,7 @@ async function init() {
   $("site-name").textContent = prettySite(STATE.siteKey);
 
   STATE.global = await getGlobal();
-  $("g-adblock").checked = !!STATE.global.adblockEnabled;
+  renderAdblockLevel(STATE.global.adblockLevel);
   $("g-json").checked = !!STATE.global.jsonFormatterEnabled;
   $("t-darkmode-global").checked = !!STATE.global.darkMode.enabled;
   renderDarkOverride(null);
@@ -92,6 +92,7 @@ function renderSiteToggles() {
   $("t-js").checked = !!STATE.jsEnabled;
   $("t-css").checked = !!s.cssEnabled;
   $("t-userjs").checked = !!s.jsEnabled;
+  $("t-adblock-pause").checked = !!s.adblockPaused;
   // A switch with nothing behind it does nothing; say so.
   $("t-css-state").textContent = s.css && s.css.trim() ? "" : "nothing written yet";
   $("t-userjs-state").textContent = s.js && s.js.trim() ? "" : "nothing written yet";
@@ -106,7 +107,7 @@ function renderDarkOverride(value) {
 }
 
 function disableSiteToggles(reason) {
-  for (const id of ["t-js", "t-css", "t-userjs"]) $(id).disabled = true;
+  for (const id of ["t-js", "t-css", "t-userjs", "t-adblock-pause"]) $(id).disabled = true;
   document
     .querySelectorAll(".site-override .seg-btn")
     .forEach((b) => (b.disabled = true));
@@ -124,8 +125,39 @@ function bindTips() {
   });
 }
 
+function renderAdblockLevel(level) {
+  document
+    .querySelectorAll(".adblock-level .seg-btn")
+    .forEach((b) => b.classList.toggle("active", b.dataset.level === level));
+  // Pausing means nothing while blocking is off everywhere.
+  $("t-adblock-pause").closest(".row").classList.toggle("dimmed", level === "off");
+}
+
+function bindAdblock() {
+  document.querySelectorAll(".adblock-level .seg-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const level = btn.dataset.level;
+      await setGlobal({ adblockLevel: level });
+      await sendMessage({ type: "apply-adblock" });
+      STATE.global.adblockLevel = level;
+      renderAdblockLevel(level);
+      const label = { off: "off", basic: "Basic (about 40 big ad and tracking companies)", strong: "Strong (about 3,500 ad and tracking servers)" }[level];
+      status(`Ad blocking: ${label}. Reload pages to apply.`, "ok");
+    });
+  });
+  $("t-adblock-pause").addEventListener("change", async (e) => {
+    if (!STATE.siteKey) return;
+    const paused = e.target.checked;
+    await sendMessage({ type: "set-site", siteKey: STATE.siteKey, patch: { adblockPaused: paused } });
+    await sendMessage({ type: "apply-adblock" });
+    if (STATE.settings) STATE.settings.adblockPaused = paused;
+    status(paused ? `Blocking paused on ${STATE.siteKey}. Reload the page.` : `Blocking resumed on ${STATE.siteKey}. Reload the page.`, "ok");
+  });
+}
+
 function bindSitePane() {
   bindTips();
+  bindAdblock();
   $("open-options").addEventListener("click", () => chrome.runtime.openOptionsPage());
 
   $("t-js").addEventListener("change", async (e) => {
@@ -1680,11 +1712,6 @@ async function onCloseDupes() {
 //  Tools pane 
 
 function bindToolsPane() {
-  $("g-adblock").addEventListener("change", async (e) => {
-    await setGlobal({ adblockEnabled: e.target.checked });
-    await sendMessage({ type: "apply-adblock" });
-    status(`Adblock ${e.target.checked ? "enabled" : "disabled"}`, "ok");
-  });
   $("g-json").addEventListener("change", async (e) => {
     await setGlobal({ jsonFormatterEnabled: e.target.checked });
     status(`JSON formatter ${e.target.checked ? "on" : "off"}`, "ok");

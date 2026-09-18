@@ -47,6 +47,20 @@
             <button type="button" class="link-btn" id="open-dark-tune">Tune brightness / contrast →</button>
           </div>
         </div>
+        <div class="dark-section adblock-section">
+          <div class="row adblock-level">
+            <span>Block ads &amp; trackers <i class="tip" tabindex="0" role="note" aria-label="Basic blocks about 40 of the biggest ad and tracking companies and almost never breaks a site. Strong adds a community list of about 3,500 ad and tracking servers (Peter Lowe's list); it blocks far more, and once in a while a login or embedded widget may misbehave. Neither hides empty ad boxes or stops YouTube ads; keep uBlock Origin Lite alongside for that." data-tip="Basic blocks about 40 of the biggest ad and tracking companies and almost never breaks a site. Strong adds a community list of about 3,500 ad and tracking servers (Peter Lowe's list); it blocks far more, and once in a while a login or embedded widget may misbehave. Neither hides empty ad boxes or stops YouTube ads; keep uBlock Origin Lite alongside for that.">?</i></span>
+            <div class="seg" role="radiogroup" aria-label="Ad blocking level">
+              <button type="button" class="seg-btn" data-level="off">Off</button>
+              <button type="button" class="seg-btn" data-level="basic">Basic</button>
+              <button type="button" class="seg-btn" data-level="strong">Strong</button>
+            </div>
+          </div>
+          <label class="row sm">
+            <span>Pause on this site <i class="tip" tabindex="0" role="note" aria-label="Turns ad and tracker blocking off for this one site and leaves it on everywhere else. Use it when a site misbehaves, or when you need its analytics and tag manager to load (for example while testing your own site). Reload the page after changing it." data-tip="Turns ad and tracker blocking off for this one site and leaves it on everywhere else. Use it when a site misbehaves, or when you need its analytics and tag manager to load (for example while testing your own site). Reload the page after changing it.">?</i></span>
+            <input type="checkbox" id="t-adblock-pause" />
+          </label>
+        </div>
         <div class="toggles">
           <label class="row">
             <span>Allow JavaScript <i class="tip" tabindex="0" role="note" aria-label="Off blocks ALL of this site's own scripts, using Chrome's built-in per-site setting. It kills most popups, paywall overlays and trackers, but menus, video players and logins usually stop working too. The tab reloads when you flip it." data-tip="Off blocks ALL of this site's own scripts, using Chrome's built-in per-site setting. It kills most popups, paywall overlays and trackers, but menus, video players and logins usually stop working too. The tab reloads when you flip it.">?</i></span>
@@ -476,10 +490,6 @@
         </div>
 
         <div class="globals">
-          <label class="row sm">
-            <span>Block ads &amp; trackers <em class="muted">(basic list)</em> <i class="tip" tabindex="0" role="note" aria-label="Blocks requests to about 40 of the biggest ad and tracking companies (Google Ads and Analytics, Facebook, Criteo, Taboola, Hotjar and similar) on every site. It does not hide empty ad boxes and does not stop YouTube or same-site ads. Keep uBlock Origin Lite alongside if you want full blocking." data-tip="Blocks requests to about 40 of the biggest ad and tracking companies (Google Ads and Analytics, Facebook, Criteo, Taboola, Hotjar and similar) on every site. It does not hide empty ad boxes and does not stop YouTube or same-site ads. Keep uBlock Origin Lite alongside if you want full blocking.">?</i></span>
-            <input type="checkbox" id="g-adblock" />
-          </label>
           <label class="row sm">
             <span>JSON pretty-print <i class="tip" tabindex="0" role="note" aria-label="When a tab shows raw JSON (an API response), replaces the wall of text with a collapsible, colour-coded viewer. Normal web pages are never touched." data-tip="When a tab shows raw JSON (an API response), replaces the wall of text with a collapsible, colour-coded viewer. Normal web pages are never touched.">?</i></span>
             <input type="checkbox" id="g-json" />

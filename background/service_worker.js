@@ -538,14 +538,47 @@ async function setEncoding(tabIdOverride, encoding) {
 
 // ---------- Adblock toggle ----------
 
+// Levels: "basic" = rules/basic_block.json (~40 big ad/tracking companies),
+// "strong" = basic + rules/strong_block.json (Peter Lowe's list, regenerate
+// with scripts/update_blocklist.js). Per-site pause is one dynamic
+// allowAllRequests rule on the paused sites' top-level documents; its
+// priority sits above the block rules (1) and below header rules (3), because
+// an allow rule also cancels modifyHeaders rules of equal or lower priority.
+
+const ADBLOCK_RULESETS = { basic: "combobreaker_basic_block", strong: "combobreaker_strong_block" };
+const ADBLOCK_PAUSE_RULE_ID = 900001;
+const ADBLOCK_PAUSE_PRIORITY = 2;
+
 async function applyAdblockState() {
-  const { adblockEnabled } = await getGlobal();
+  const { adblockLevel } = await getGlobal();
+  const want = adblockLevel === "strong" ? ["basic", "strong"] : adblockLevel === "basic" ? ["basic"] : [];
   await chrome.declarativeNetRequest.updateEnabledRulesets({
-    [adblockEnabled ? "enableRulesetIds" : "disableRulesetIds"]: [
-      "combobreaker_basic_block",
-    ],
+    enableRulesetIds: want.map((k) => ADBLOCK_RULESETS[k]),
+    disableRulesetIds: Object.keys(ADBLOCK_RULESETS)
+      .filter((k) => !want.includes(k))
+      .map((k) => ADBLOCK_RULESETS[k]),
   });
-  return { adblockEnabled };
+  const paused = await applyAdblockPauses();
+  return { adblockLevel, adblockEnabled: adblockLevel !== "off", paused };
+}
+
+async function applyAdblockPauses() {
+  const paused = (await listSites())
+    .filter((s) => s.settings.adblockPaused && s.siteKey !== "file://")
+    .map((s) => s.siteKey);
+  const addRules = paused.length
+    ? [
+        {
+          id: ADBLOCK_PAUSE_RULE_ID,
+          priority: ADBLOCK_PAUSE_PRIORITY,
+          action: { type: "allowAllRequests" },
+          // requestDomains also matches subdomains (www.).
+          condition: { requestDomains: paused, resourceTypes: ["main_frame"] },
+        },
+      ]
+    : [];
+  await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: [ADBLOCK_PAUSE_RULE_ID], addRules });
+  return paused;
 }
 
 // ---------- Site data nuke ----------
@@ -770,7 +803,7 @@ function buildHeaderRule(id, siteKey, kind, headers) {
   };
   return {
     id,
-    priority: 1,
+    priority: 3, // above ADBLOCK_PAUSE_PRIORITY, or a paused site would lose its header rules
     action,
     condition: {
       requestDomains: [siteKey],
@@ -1163,7 +1196,7 @@ async function setNoCacheForPopupTab(tabId) {
   const id = noCacheRuleIdForTab(tabId);
   const rule = {
     id,
-    priority: 2,
+    priority: 3,
     action: {
       type: "modifyHeaders",
       requestHeaders: [

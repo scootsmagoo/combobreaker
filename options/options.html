@@ -20,8 +20,12 @@
         <section class="side-section">
           <h2>Global</h2>
           <label class="row">
-            <span title="Blocks requests to about 40 of the biggest ad and tracking companies (Google Ads and Analytics, Facebook, Criteo, Taboola, Hotjar and similar) on every site. It does not hide empty ad boxes and does not stop YouTube or same-site ads. Keep uBlock Origin Lite alongside if you want full blocking.">Block ads &amp; trackers (basic list)</span>
-            <input type="checkbox" id="g-adblock" />
+            <span title="Basic blocks about 40 of the biggest ad and tracking companies and almost never breaks a site. Strong adds a community list of about 3,500 ad and tracking servers (Peter Lowe's list); it blocks far more, and once in a while a login or embedded widget may misbehave. Neither hides empty ad boxes or stops YouTube ads; keep uBlock Origin Lite alongside for that.">Block ads &amp; trackers</span>
+            <select id="g-adblock-level">
+              <option value="off">Off</option>
+              <option value="basic">Basic</option>
+              <option value="strong">Strong</option>
+            </select>
           </label>
           <label class="row">
             <span title="When a tab shows raw JSON (an API response), replaces the wall of text with a collapsible, colour-coded viewer. Normal web pages are never touched.">JSON pretty-print</span>
@@ -275,6 +279,13 @@ console.log('hello from ComboBreaker');
               <option value="">Auto (follow global)</option>
               <option value="on">Always on</option>
               <option value="off">Always off</option>
+            </select>
+          </label>
+          <label class="row">
+            <span title="Turns ad and tracker blocking off for this one site and leaves it on everywhere else. Use it when a site misbehaves, or when you need its analytics and tag manager to load (for example while testing your own site). Reload the page after changing it.">Ad &amp; tracker blocking on this site</span>
+            <select id="meta-adblock">
+              <option value="">Follow the global level</option>
+              <option value="paused">Paused (block nothing here)</option>
             </select>
           </label>
           <label class="row">

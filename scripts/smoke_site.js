@@ -201,6 +201,63 @@ async function main() {
     await popup.screenshot({ path: path.join(OUT, "site-popup-snippets.png") });
     await popup.close();
 
+    // 5e. Ad blocking levels + per-site pause, measured with real requests
+    // from the local page. A blocked request rejects at once
+    // (ERR_BLOCKED_BY_CLIENT); an allowed no-cors request resolves or fails on
+    // the network, so "blocked" is only claimed when a control host is not.
+    const probe = async (host) => {
+      await page.reload({ waitUntil: "load" });
+      return page.evaluate(async (h) => {
+        const t0 = performance.now();
+        try {
+          await fetch("https://" + h + "/cb-smoke", { mode: "no-cors", cache: "no-store" });
+          return { blocked: false, ms: Math.round(performance.now() - t0) };
+        } catch (e) {
+          // Blocked requests fail in a few ms without touching the network.
+          return { blocked: performance.now() - t0 < 25, ms: Math.round(performance.now() - t0) };
+        }
+      }, host);
+    };
+    const setLevel = (level) =>
+      opts.evaluate(async (l) => {
+        const { setGlobal } = await import("../lib/storage.js");
+        await setGlobal({ adblockLevel: l });
+        return chrome.runtime.sendMessage({ type: "apply-adblock" });
+      }, level);
+    const setPaused = (paused) =>
+      opts.evaluate(async (p) => {
+        const { setSite } = await import("../lib/storage.js");
+        await setSite("127.0.0.1", { adblockPaused: p });
+        return chrome.runtime.sendMessage({ type: "apply-adblock" });
+      }, paused);
+    const BASIC_HOST = "doubleclick.net"; // in rules/basic_block.json
+    const STRONG_HOST = "chartbeat.com"; // only in rules/strong_block.json
+    const adblock = {};
+    await setLevel("off");
+    adblock.off = { basic: await probe(BASIC_HOST), strong: await probe(STRONG_HOST) };
+    await setLevel("basic");
+    adblock.basic = { basic: await probe(BASIC_HOST), strong: await probe(STRONG_HOST) };
+    await setLevel("strong");
+    adblock.strong = { basic: await probe(BASIC_HOST), strong: await probe(STRONG_HOST) };
+    await setPaused(true);
+    adblock.strongPaused = { basic: await probe(BASIC_HOST), strong: await probe(STRONG_HOST) };
+    await setPaused(false);
+    adblock.strongResumed = { basic: await probe(BASIC_HOST) };
+    await setLevel("basic");
+    expect(
+      "adblockLevels",
+      !adblock.off.basic.blocked &&
+        !adblock.off.strong.blocked &&
+        adblock.basic.basic.blocked &&
+        !adblock.basic.strong.blocked &&
+        adblock.strong.basic.blocked &&
+        adblock.strong.strong.blocked &&
+        !adblock.strongPaused.basic.blocked &&
+        !adblock.strongPaused.strong.blocked &&
+        adblock.strongResumed.basic.blocked,
+      adblock
+    );
+
     // 6. Options UI pieces exist and the page stayed error-free.
     await opts.reload({ waitUntil: "load" });
     await sleep(600);

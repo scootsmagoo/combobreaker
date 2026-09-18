@@ -7,7 +7,8 @@
     "lint": "eslint .",
     "check": "node scripts/check_manifest.cjs",
     "pack": "node scripts/pack.cjs",
-    "smoke": "node scripts/smoke_overlay.js"
+    "smoke": "node scripts/smoke_overlay.js",
+    "blocklist": "node scripts/update_blocklist.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

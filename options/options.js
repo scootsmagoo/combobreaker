@@ -23,15 +23,15 @@ async function init() {
   $("version").textContent = "v" + chrome.runtime.getManifest().version;
 
   const g = await getGlobal();
-  $("g-adblock").checked = !!g.adblockEnabled;
+  $("g-adblock-level").value = g.adblockLevel;
   $("g-json").checked = !!g.jsonFormatterEnabled;
   $("g-darkmode").checked = !!g.darkMode.enabled;
   renderDarkTuneInputs(g.darkMode.theme);
 
-  $("g-adblock").addEventListener("change", async (e) => {
-    await setGlobal({ adblockEnabled: e.target.checked });
+  $("g-adblock-level").addEventListener("change", async (e) => {
+    await setGlobal({ adblockLevel: e.target.value });
     chrome.runtime.sendMessage({ type: "apply-adblock" });
-    toast(`Adblock ${e.target.checked ? "on" : "off"}`, "ok");
+    toast(`Ad blocking: ${e.target.value}`, "ok");
   });
   $("g-json").addEventListener("change", async (e) => {
     await setGlobal({ jsonFormatterEnabled: e.target.checked });
@@ -62,6 +62,7 @@ async function init() {
   $("js-area").addEventListener("input", () => (STATE.dirty = true));
   $("meta-dark").addEventListener("change", () => (STATE.dirty = true));
   $("meta-overlay").addEventListener("change", () => (STATE.dirty = true));
+  $("meta-adblock").addEventListener("change", () => (STATE.dirty = true));
 
   $("add-req-header").addEventListener("click", () => addHeaderRow("req"));
   $("add-res-header").addEventListener("click", () => addHeaderRow("res"));
@@ -134,6 +135,7 @@ function renderSites() {
     if (settings.jsEnabled) badges.appendChild(badge("JS"));
     if (settings.darkMode === "on") badges.appendChild(badge("DARK ON"));
     else if (settings.darkMode === "off") badges.appendChild(badge("DARK OFF"));
+    if (settings.adblockPaused) badges.appendChild(badge("ADS ALLOWED"));
     if (settings.mediaOverlay === false) badges.appendChild(badge("NO BADGES"));
     else if (settings.mediaOverlay === true) badges.appendChild(badge("BADGES"));
     li.appendChild(name);
@@ -164,6 +166,7 @@ async function selectSite(siteKey, isNew = false) {
   $("meta-dark").value = dm === "on" || dm === "off" ? dm : "";
   const mo = STATE.activeSettings.mediaOverlay;
   $("meta-overlay").value = mo === true ? "on" : mo === false ? "off" : "";
+  $("meta-adblock").value = STATE.activeSettings.adblockPaused ? "paused" : "";
   $("headers-site-label").textContent = siteKey;
   renderHeaderRules("req", STATE.activeSettings.requestHeaders || []);
   renderHeaderRules("res", STATE.activeSettings.responseHeaders || []);
@@ -229,6 +232,7 @@ async function saveActive() {
   else if (STATE.activeTab === "js") patch.jsEnabled = enabled;
   const meta = $("meta-dark").value;
   patch.darkMode = meta === "on" || meta === "off" ? meta : null;
+  patch.adblockPaused = $("meta-adblock").value === "paused";
   const mo = $("meta-overlay").value;
   patch.mediaOverlay = mo === "on" ? true : mo === "off" ? false : null;
   // Headers are read straight off the DOM each save so unsaved row edits
@@ -245,6 +249,7 @@ async function saveActive() {
   chrome.runtime
     .sendMessage({ type: "apply-site-headers", siteKey: STATE.activeSite })
     .catch(() => {});
+  chrome.runtime.sendMessage({ type: "apply-adblock" }).catch(() => {});
 }
 
 async function broadcastSiteChange(siteKey, settings) {
