@@ -113,7 +113,8 @@ function whichAll(name) {
 function candidatePaths(name) {
   const home = os.homedir();
   const exe = IS_WIN ? `${name}.exe` : name;
-  const list = [];
+  // Next to this script first: setup.ps1 / setup.sh may drop tools here.
+  const list = [path.join(__dirname, exe)];
   if (IS_WIN) {
     const local = process.env.LOCALAPPDATA || path.join(home, "AppData", "Local");
     list.push(path.join(local, "Microsoft", "WinGet", "Links", exe));

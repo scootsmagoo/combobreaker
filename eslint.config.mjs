@@ -13,7 +13,7 @@ export default [
     },
   },
   {
-    files: ["background/**", "lib/**", "popup/**", "options/**", "viewer/**"],
+    files: ["background/**", "lib/**", "popup/**", "options/**", "setup/**", "viewer/**"],
     languageOptions: {
       sourceType: "module",
       globals: { ...globals.browser, ...globals.serviceworker, ...chrome },

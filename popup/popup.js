@@ -734,7 +734,7 @@ function bindMediaPane() {
   });
   $("media-ytdlp").addEventListener("click", copyYtDlp);
   $("bridge-setup").addEventListener("click", () => {
-    sendMessage({ type: "open-options", section: "downloads" }).catch(() => {});
+    sendMessage({ type: "open-setup" }).catch(() => {});
     window.close();
   });
   $("bridge-recheck").addEventListener("click", () => checkBridge(true));

@@ -60,7 +60,7 @@ function walk(dir, out = []) {
   }
   return out;
 }
-const SOURCE_DIRS = ["background", "content", "lib", "options", "popup", "tools", "viewer"];
+const SOURCE_DIRS = ["background", "content", "lib", "options", "popup", "setup", "tools", "viewer"];
 const sources = SOURCE_DIRS.flatMap((d) => (fs.existsSync(rel(d)) ? walk(d) : []));
 for (const f of sources) {
   const buf = fs.readFileSync(rel(f));

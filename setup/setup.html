@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="setup.css" />
+    <title>ComboBreaker — Video download setup</title>
+  </head>
+  <body>
+    <main>
+      <header>
+        <img src="../icons/icon48.png" alt="" width="40" height="40" />
+        <h1>Video download setup</h1>
+      </header>
+
+      <div class="status" id="status" data-state="checking">
+        <span class="dot"></span>
+        <span id="status-text">Checking…</span>
+      </div>
+
+      <section id="done" hidden>
+        <p class="big">You're all set.</p>
+        <p>Hover any video or thumbnail and click the download badge.</p>
+        <p class="muted" id="done-detail"></p>
+      </section>
+
+      <section id="steps" hidden>
+        <p class="lead">
+          YouTube and some other sites need a small helper on your computer.
+          One command installs everything.
+        </p>
+
+        <ol>
+          <li>
+            <h2>Copy this command</h2>
+            <div class="cmd">
+              <code id="cmd"></code>
+              <button type="button" id="copy">Copy</button>
+            </div>
+          </li>
+          <li>
+            <h2 id="paste-title">Paste it into Terminal and press Enter</h2>
+            <p class="muted" id="paste-hint"></p>
+          </li>
+          <li>
+            <h2>Come back here</h2>
+            <p class="muted">This page notices by itself when it's done.</p>
+            <button type="button" id="recheck" class="secondary">Check again</button>
+          </li>
+        </ol>
+
+        <p class="muted os-switch">
+          <span id="os-label"></span>
+          <button type="button" class="link" id="os-toggle"></button>
+        </p>
+
+        <details>
+          <summary>What does the command do?</summary>
+          <p>
+            It installs <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noopener">yt-dlp</a>,
+            <a href="https://ffmpeg.org/" target="_blank" rel="noopener">ffmpeg</a> and
+            <a href="https://nodejs.org/" target="_blank" rel="noopener">Node.js</a> if you don't have them,
+            downloads ComboBreaker's helper script from its
+            <a href="https://github.com/scootsmagoo/combobreaker/tree/main/native" target="_blank" rel="noopener">GitHub repo</a>
+            into your user folder, and tells your browser where to find it.
+            No admin rights, nothing runs in the background, and downloads never leave your machine.
+          </p>
+        </details>
+      </section>
+    </main>
+    <script src="setup.js" type="module"></script>
+  </body>
+</html>

@@ -886,7 +886,7 @@
           closeMenu();
         });
         addRow("Set up the bridge…", "one-click YouTube downloads", () => {
-          sendToSw({ type: "open-options", section: "downloads" }).catch(() => {});
+          sendToSw({ type: "open-setup" }).catch(() => {});
           closeMenu();
         });
       }
