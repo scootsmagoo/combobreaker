@@ -109,10 +109,13 @@ You can rebind these in `chrome://extensions/shortcuts`.
 
 ```
 manifest.json                 MV3 manifest, permissions, DNR, settings overrides
-background/                   Service worker (commands, screenshot, content settings,
-                              Dark Reader injection, media list, header rules, etc.)
-popup/                        Toolbar popup (toggles, Cookies/Headers/Redirects/Media/
-                              Browse/Tools, utility belt)
+background/service_worker.js  Boot, message router, per-site JS toggle, keyboard commands
+background/*.js               One module per area: dark_mode, page_tools (tool launcher, screenshot,
+                              encoding), blocking, site_data (nuke, auto-clear), net_capture (redirects,
+                              response headers), tech_detect, header_rules, media, browse
+popup/popup.js                Toolbar popup: init, tab routing, Site pane, dark mode, Tools
+popup/panes/*.js              Cookies, Headers, Redirects, Media and Browse panes
+popup/shared.js               Popup state + DOM / messaging helpers shared by the panes
 popup/utilities.js            Tier-2 utility-belt tools (lazy-rendered per <details>)
 options/                      Full-page options (CSS/JS editors, global prefs, dark mode)
 content/site_injector.js      document_start: per-site CSS/JS, dark anti-flash
