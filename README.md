@@ -33,6 +33,7 @@ Inspired by the spirit of [@levelsio's combo-extension thread](https://x.com/lev
 | **Backup** | Options → **Backup**: export / import every setting (global, per-site CSS/JS/headers, snippets, tab sessions) as one JSON file. |
 | **Ad & tracker blocking** | Three levels, set from the popup's Site tab: **Off**, **Basic** (a hand-picked `declarativeNetRequest` list of ~40 of the biggest ad, analytics and social-pixel companies; very unlikely to break anything) and **Strong** (Basic plus [Peter Lowe's list](https://pgl.yoyo.org/adservers/) of ~3,500 ad and tracking servers, third-party requests only). **Pause on this site** switches blocking off for one site, e.g. when something breaks or you need its analytics / tag manager to load. The toolbar icon shows how many requests were blocked on the current page (switch it off in options) and the Site tab names the companies. It blocks network requests only: no cosmetic filtering, no YouTube ads. Run uBlock Origin Lite alongside if you want those. The Strong list is regenerated weekly by `.github/workflows/blocklist.yml`, which opens a PR (or run `node scripts/update_blocklist.js` yourself); the extension never fetches it at runtime. |
 | **Per-site privacy** | Site tab, three switches for the site you are on. **Forget this site when I close it**: when its last tab closes, the same wipe as *Nuke all site data* runs (also swept at browser start, since quitting can outrun the cleanup). **Block third-party cookies here**: requests the site's pages make to other companies go out without cookies and cannot set any (DNR header rules; link navigations are untouched, requests from inside third-party iframes are not covered). **Referrer sent by this site**: origin only / nothing to other sites / never, as a `Referrer-Policy` response header plus a `Referer` strip for the strict options. |
+| **Tracker highlighter** | **Tools → Show trackers**: a visual privacy audit of the page. Outlines images and frames from hosts on the Basic / Strong lists, marks hidden third-party pixels and iframes, and lists every tracker host (scripts and fetch/beacon requests included) with whether your current blocking level stops it. Click a row to scroll to it; Esc closes. Read-only. |
 | **Tech stack** | Site tab → **Built with**: framework, CMS, analytics, services and hosting chips from ~75 local signatures (page globals, DOM, script URLs, response headers). No network calls. |
 
 ## Install (developer mode)
@@ -126,7 +127,7 @@ viewer/helper_setup.*         Setup page: OS-specific step, polls until the Help
 lib/helper.js                 Helper constants (source URL, install one-liner, folders)
 content/schema_inject.js      Injected to collect JSON-LD / microdata / RDFa for structured-data viewer
 content/reader_inject.js      Injected with Readability + Turndown for reader / Copy as Markdown
-tools/                        On-demand: color picker, ruler, whatfont
+tools/                        On-demand: color picker, ruler, whatfont, tracker highlighter
 viewer/                       hls_downloader, reader, structured_data
 vendor/                       Dark Reader, qrcode-generator, Readability, Turndown
 rules/                        declarativeNetRequest static rules: basic_block.json (hand-picked),
@@ -137,6 +138,7 @@ popup/storage_view.js         localStorage / sessionStorage viewer in the Cookie
 lib/                          storage (sync/local split, migrations), backup, site URL helpers
 lib/site_rules.js             Pure builders for per-site DNR rules (header overrides, cookie strip, referrer)
 lib/tech.js                   Tech stack signatures + matcher
+lib/trackers.js               Host → blocklist lookup for the tracker highlighter
 test/                         node:test unit tests (fake chrome.storage)
 scripts/                      check_manifest, pack, icon build, puppeteer smoke tests
 icons/                        PNG icons

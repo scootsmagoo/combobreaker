@@ -1817,6 +1817,7 @@ async function onTool(tool) {
       case "color-picker":
       case "ruler":
       case "whatfont":
+      case "trackers":
         await sendMessage({ type: "launch-tool", tool, tabId: STATE.tab.id });
         window.close();
         break;

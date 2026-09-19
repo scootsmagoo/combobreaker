@@ -26,6 +26,7 @@ import {
 } from "./user_scripts.js";
 import { downloadWindowsInstaller } from "./helper_installer.js";
 import { detectTech, probeInputs } from "../lib/tech.js";
+import { buildTrackerIndex, classifyHost, isThirdParty, wouldBlock } from "../lib/trackers.js";
 import { buildSiteRules, siteNeedsRules, ruleLabel, HEADER_RESOURCE_TYPES } from "../lib/site_rules.js";
 
 async function boot() {
@@ -81,6 +82,8 @@ async function handleMessage(msg, sender) {
       return await setEncoding(msg.tabId, msg.encoding);
     case "apply-adblock":
       return await applyAdblockState();
+    case "classify-trackers":
+      return await classifyTrackers(msg.hosts, sender?.tab?.url);
     case "adblock-matched":
       return await adblockMatched(msg.tabId);
     case "get-redirect-chain":
@@ -389,6 +392,7 @@ const TOOL_FILES = {
   "color-picker": "tools/color_picker.js",
   ruler: "tools/ruler.js",
   whatfont: "tools/whatfont.js",
+  trackers: "tools/trackers.js",
 };
 
 async function launchTool(tool, tabIdOverride, sender) {
@@ -625,6 +629,32 @@ async function adblockMatched(tabId) {
   }
   const basic = [...byName].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
   return { total: strong + basic.reduce((n, b) => n + b.count, 0), basic, strong };
+}
+
+// For tools/trackers.js: which of the hosts a page talks to are on the Basic
+// or Strong list, and whether the current settings would block them there.
+
+let trackerIndex = null;
+
+async function loadTrackerIndex() {
+  if (trackerIndex) return trackerIndex;
+  const load = async (file) => (await fetch(chrome.runtime.getURL(file))).json();
+  trackerIndex = buildTrackerIndex(await load("rules/basic_block.json"), await load("rules/strong_block.json"));
+  return trackerIndex;
+}
+
+async function classifyTrackers(hosts, pageUrl) {
+  const index = await loadTrackerIndex();
+  const siteKey = siteKeyFromUrl(pageUrl);
+  const [{ adblockLevel }, site] = await Promise.all([getGlobal(), getSite(siteKey)]);
+  const out = {};
+  for (const host of (Array.isArray(hosts) ? hosts : []).slice(0, 500)) {
+    const hit = classifyHost(host, index);
+    if (!hit) continue;
+    const thirdParty = isThirdParty(host, siteKey);
+    out[host] = { ...hit, blocked: wouldBlock(hit, { level: adblockLevel, paused: !!site.adblockPaused, thirdParty }) };
+  }
+  return { hosts: out, level: adblockLevel, paused: !!site.adblockPaused };
 }
 
 // ---------- Site data nuke ----------
