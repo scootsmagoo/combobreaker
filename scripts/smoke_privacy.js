@@ -1,4 +1,4 @@
-// Smoke test for the blocked-request counter and the per-site privacy
+// Smoke test for the redirect tracer, the blocked-request counter and the per-site privacy
 // settings: third-party cookie stripping, referrer override and auto-clear on
 // close.
 //
@@ -59,6 +59,10 @@ function serve(req, res) {
         `<script src="https://www.doubleclick.net/y.js"></script><img src="https://google-analytics.com/collect">`
     );
   }
+  if (url.pathname === "/hop1" || url.pathname === "/hop2") {
+    res.writeHead(url.pathname === "/hop1" ? 302 : 301, { location: url.pathname === "/hop1" ? "/hop2" : "/blank" });
+    return res.end();
+  }
   if (url.pathname === "/blank") {
     res.writeHead(200, { "content-type": "text/html" });
     return res.end("<!doctype html><title>blank</title>");
@@ -108,6 +112,21 @@ async function main() {
       await sleep(300);
       return page;
     };
+
+    // Redirect tracer: every hop of one navigation stays in the chain.
+    const hop = await browser.newPage();
+    await hop.goto(`${SITE}/hop1`, { waitUntil: "load" });
+    await sleep(500);
+    const chain = await opts.evaluate(async (url) => {
+      const [tab] = await chrome.tabs.query({ url });
+      return (await chrome.runtime.sendMessage({ type: "get-redirect-chain", tabId: tab.id })).result;
+    }, `${SITE}/blank`);
+    expect(
+      "redirectChain",
+      chain.map((e) => e.type).join(",") === "start,redirect,redirect,end" && chain[0].url.endsWith("/hop1") && chain[1].status === 302,
+      chain.map((e) => [e.type, e.url || e.to, e.status])
+    );
+    await hop.close();
 
     // 0. Blocked-request counter: toolbar badge and the popup's summary.
     const ads = await browser.newPage();

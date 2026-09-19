@@ -764,12 +764,29 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
 const REDIRECT_KEY = (tabId) => `redirects:${tabId}`;
 const MAX_CHAIN = 50;
 
-async function pushRedirect(tabId, entry) {
+// onBeforeRequest fires again for every hop of a redirect (same requestId), so
+// only a "start" with a new requestId begins a new chain. Writes are queued
+// per tab: the events arrive faster than storage round-trips.
+const redirectQueues = new Map();
+
+function pushRedirect(tabId, entry) {
   if (tabId < 0) return;
+  const prev = redirectQueues.get(tabId) || Promise.resolve();
+  const next = prev.then(() => pushRedirectNow(tabId, entry)).catch(() => {});
+  redirectQueues.set(tabId, next);
+  next.then(() => {
+    if (redirectQueues.get(tabId) === next) redirectQueues.delete(tabId);
+  });
+}
+
+async function pushRedirectNow(tabId, entry) {
   const key = REDIRECT_KEY(tabId);
   const data = await chrome.storage.session.get(key);
   let chain = data[key] || [];
-  if (entry.type === "start") chain = [];
+  if (entry.type === "start") {
+    if (chain.length && chain[0].requestId === entry.requestId) return;
+    chain = [];
+  }
   chain.push(entry);
   if (chain.length > MAX_CHAIN) chain = chain.slice(-MAX_CHAIN);
   await chrome.storage.session.set({ [key]: chain });
@@ -792,6 +809,7 @@ chrome.webRequest.onBeforeRequest.addListener(
     if (details.type !== "main_frame" || details.tabId < 0) return;
     pushRedirect(details.tabId, {
       type: "start",
+      requestId: details.requestId,
       url: details.url,
       time: Date.now(),
     });
