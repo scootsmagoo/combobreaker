@@ -1261,3 +1261,9 @@ dialog button[value="apply"], dialog button[value="save"], dialog button[value="
 .tech-chip small { color: var(--fg-dim); font-size: 10px; margin-left: 3px; }
 .tech-chip.analytics, .tech-chip.ads { border-color: rgba(251, 191, 36, 0.45); }
 .tech-chip.hosting, .tech-chip.server { color: var(--fg-dim); }
+
+/* What Auto decided for this site */
+.dark-auto-note { display: flex; gap: 8px; align-items: baseline; padding: 0 10px 4px; font-size: 11px; }
+.dark-auto-note[hidden] { display: none; }
+.dark-auto-note span { flex: 1; }
+.dark-auto-note .link-btn { font-size: 11px; }

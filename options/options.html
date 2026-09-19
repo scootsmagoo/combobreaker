@@ -40,8 +40,12 @@
         <section class="side-section">
           <h2>Dark mode</h2>
           <label class="row">
-            <span title="Recolours every website with a dark theme (Dark Reader). Use the This site buttons below to make an exception for the page you are on.">Enabled (all sites)</span>
+            <span title="Darkens websites with Dark Reader. Every site starts on Auto; pick a site in the list (or use the popup) to force it On or Off.">Enabled (all sites)</span>
             <input type="checkbox" id="g-darkmode" />
+          </label>
+          <label class="row">
+            <span title="Sites left on Auto are checked first: a page that is dark already (its own dark theme, or following your system's dark mode) is left alone, only bright pages are darkened. Switch off to darken every Auto site regardless. A site set to On is always darkened.">Skip sites that are already dark</span>
+            <input type="checkbox" id="g-darkmode-detect" />
           </label>
           <div class="dark-tune">
             <label class="tune-row">

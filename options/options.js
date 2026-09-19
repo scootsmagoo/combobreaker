@@ -27,6 +27,7 @@ async function init() {
   $("g-adblock-badge").checked = !!g.adblockBadge;
   $("g-json").checked = !!g.jsonFormatterEnabled;
   $("g-darkmode").checked = !!g.darkMode.enabled;
+  $("g-darkmode-detect").checked = !!g.darkMode.detectDark;
   renderDarkTuneInputs(g.darkMode.theme);
 
   $("g-adblock-level").addEventListener("change", async (e) => {
@@ -46,6 +47,11 @@ async function init() {
   $("g-darkmode").addEventListener("change", async (e) => {
     await setGlobal({ darkMode: { enabled: e.target.checked } });
     toast(`Dark mode ${e.target.checked ? "on" : "off"} for all sites`, "ok");
+  });
+
+  $("g-darkmode-detect").addEventListener("change", async (e) => {
+    await setGlobal({ darkMode: { detectDark: e.target.checked } });
+    toast(e.target.checked ? "Auto skips sites that are already dark" : "Auto darkens every site", "ok");
   });
 
   bindDarkTuneInputs();

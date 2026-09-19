@@ -16,7 +16,7 @@ Inspired by the spirit of [@levelsio's combo-extension thread](https://x.com/lev
 | **Per-site custom CSS** | A small Stylus-style editor; CSS is injected at `document_start` only on the matching site. |
 | **Per-site custom JS** | Run your own script on a domain, in the page's MAIN world (no `GM_*` API). Delivered through `chrome.userScripts`, which works even on strict-CSP sites — turn on **Allow User Scripts** for ComboBreaker at `chrome://extensions` → Details. Without that switch it falls back to `chrome.scripting`, which runs slightly later and is subject to the page's CSP. |
 | **Snippets** | **Tools → Snippets**: named JS blobs you run on the current tab with one click (the bookmarklet use case). Ships with table→CSV, un-stick fixed overlays, and re-enable text selection. |
-| **Dark mode** | Powered by [Dark Reader](https://darkreader.org/) (vendored, MIT). Global on/off plus per-site overrides (auto / always-on / always-off). Brightness / contrast / sepia / grayscale / mode sliders in the popup and options. |
+| **Dark mode** | Powered by [Dark Reader](https://darkreader.org/) (vendored, MIT). One global switch plus a per-site **Auto / On / Off**. With the switch on, **Auto darkens only bright sites**: a page that is dark already (its own dark theme, or following your system) is measured and left alone; the popup says which it decided, with a **Re-check** link. Brightness / contrast / sepia / grayscale / mode sliders in the popup and options. |
 | **Color picker** | Native `EyeDropper` API — one click, hex copied to clipboard. |
 | **Pixel ruler** | On-page draggable ruler overlay. |
 | **Font inspector** | Hover any element to see its font stack, size, weight, line-height, color. |
@@ -88,6 +88,7 @@ Browser smoke tests (need `npm i --no-save puppeteer-core` and a local Chrome):
 ```
 node scripts/smoke_site.js      # per-site CSS/JS, userScripts + fallback, snippets, site-data nuke, backup
 node scripts/smoke_overlay.js   # download badge on a local page and on YouTube
+node scripts/smoke_dark.js      # dark mode Auto: bright / dark / late CSS / late-rendering app / cached verdicts / overrides
 node scripts/smoke_privacy.js   # blocked counter, third-party cookie strip, referrer override, auto-clear on close
 ```
 
@@ -235,10 +236,11 @@ protocol are in [`native/README.md`](native/README.md).
 
 ### Dark-mode model
 
-Same idea as stock Dark Reader: global default + per-site override.
-
-- **Global** (popup → dark mode) vs **This site** (Auto / On / Off) vs **tuning** in options or the popup.
-- `Alt+Shift+D` flips the per-site override the same way Dark Reader does.
+- **Global** switch (popup → Dark mode) × **This site** (Auto / On / Off) × **tuning** in options or the popup.
+- **Off** globally: nothing is darkened unless a site is set to On.
+- **On** globally, site on **Auto**: `content/site_injector.js` measures the page (what is painted behind five points of the viewport, the canvas background, `color-scheme`) and only loads Dark Reader when it is bright. The verdict is cached per site in `chrome.storage.local` (`cb_dark_detect`) so a bright site is darkened from `document_start` on the next visit with no flash; a cached "dark" is re-measured on every load, a cached "bright" expires after 7 days or on **Re-check**. Options → Dark mode → **Skip sites that are already dark** turns the measuring off (every Auto site is darkened).
+- `Alt+Shift+D` flips the per-site override; on a site Auto left alone it forces Dark Reader **on**.
+- Dark Reader is injected with a small guard that hides an AMD loader's `define.amd` for that instant, otherwise its UMD wrapper registers as an AMD module on RequireJS sites and never creates `window.DarkReader`.
 
 ## Privacy
 

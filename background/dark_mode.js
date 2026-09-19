@@ -1,6 +1,6 @@
 // Dark mode: injects and drives the vendored Dark Reader per tab.
 
-import { effectiveDarkModeFor, getGlobal, getSite, setGlobal, setSite } from "../lib/storage.js";
+import { DARK_DETECT_KEY, effectiveDarkModeFor, getGlobal, getSite, setGlobal, setSite } from "../lib/storage.js";
 
 // ---------- Dark mode (Dark Reader engine) ----------
 //
@@ -27,7 +27,8 @@ export async function applyDarkMode(tabId, enabled, theme) {
       try {
         await chrome.scripting.executeScript({
           target: { tabId },
-          files: ["vendor/darkreader.js"],
+          // The guards keep an AMD loader on the page from swallowing the bundle.
+          files: ["content/dr_amd_guard_on.js", "vendor/darkreader.js", "content/dr_amd_guard_off.js"],
           world: "MAIN",
           injectImmediately: true,
         });
@@ -157,7 +158,13 @@ export async function drFetch(url) {
 export async function toggleDarkModeSite(siteKey) {
   if (!siteKey) return null;
   const [g, site] = await Promise.all([getGlobal(), getSite(siteKey)]);
-  const currentlyDark = effectiveDarkModeFor(g, site);
+  let currentlyDark = effectiveDarkModeFor(g, site);
+  // In Auto, a site that is dark on its own is not being darkened by us, so
+  // the shortcut should force Dark Reader on rather than "off".
+  if (currentlyDark && site.darkMode == null && g.darkMode.detectDark) {
+    const verdict = ((await chrome.storage.local.get(DARK_DETECT_KEY))[DARK_DETECT_KEY] || {})[siteKey];
+    if (verdict && verdict.dark) currentlyDark = false;
+  }
   const nextOverride = currentlyDark ? "off" : "on";
   await setSite(siteKey, { darkMode: nextOverride });
   return { override: nextOverride };

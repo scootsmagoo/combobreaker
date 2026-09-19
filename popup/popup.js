@@ -1,5 +1,5 @@
 import { siteKeyFromUrl, prettySite } from "../lib/site.js";
-import { getGlobal, setGlobal } from "../lib/storage.js";
+import { getGlobal, setGlobal, DARK_DETECT_KEY } from "../lib/storage.js";
 import { initUtilities } from "./utilities.js";
 import { initSnippets } from "./snippets.js";
 import { initStorageView } from "./storage_view.js";
@@ -102,7 +102,24 @@ function renderSiteToggles() {
   renderDarkOverride(s.darkMode);
 }
 
+// Under the This-site buttons: what Auto measured, so "nothing happened" on a
+// dark site reads as a decision rather than a bug.
+async function renderAutoNote() {
+  const note = $("dark-auto-note");
+  note.hidden = true;
+  const g = STATE.global && STATE.global.darkMode;
+  const override = STATE.settings && STATE.settings.darkMode;
+  if (!STATE.siteKey || !g || !g.enabled || !g.detectDark || override === "on" || override === "off") return;
+  const verdict = ((await chrome.storage.local.get(DARK_DETECT_KEY))[DARK_DETECT_KEY] || {})[STATE.siteKey];
+  if (!verdict) return;
+  $("dark-auto-text").textContent = verdict.dark
+    ? "Auto: this site is already dark, so it is left alone."
+    : "Auto: this site is bright, so it is darkened.";
+  note.hidden = false;
+}
+
 function renderDarkOverride(value) {
+  renderAutoNote();
   const norm = value === "on" || value === "off" ? value : "";
   document
     .querySelectorAll(".site-override .seg-btn")
@@ -286,6 +303,15 @@ function bindDarkSection() {
     });
     STATE.global.darkMode.enabled = enabled;
     status(`Dark mode ${enabled ? "on" : "off"} (all sites)`, "ok");
+    setTimeout(renderAutoNote, 1200); // the page measures itself once it is asked to darken
+  });
+
+  $("dark-auto-recheck").addEventListener("click", async () => {
+    const all = (await chrome.storage.local.get(DARK_DETECT_KEY))[DARK_DETECT_KEY] || {};
+    delete all[STATE.siteKey];
+    await chrome.storage.local.set({ [DARK_DETECT_KEY]: all });
+    chrome.tabs.reload(STATE.tab.id);
+    window.close();
   });
 
   document.querySelectorAll(".site-override .seg-btn").forEach((btn) => {
@@ -305,7 +331,7 @@ function bindDarkSection() {
           ? `forced on for ${STATE.siteKey}`
           : override === "off"
             ? `disabled for ${STATE.siteKey}`
-            : `following global for ${STATE.siteKey}`;
+            : `on Auto for ${STATE.siteKey}`;
       status(`Dark mode ${label}`, "ok");
     });
   });

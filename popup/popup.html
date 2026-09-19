@@ -32,16 +32,20 @@
       <section id="pane-site" class="pane active">
         <div class="dark-section">
           <label class="row">
-            <span>Dark mode <em class="muted">(all sites)</em> <i class="tip" tabindex="0" role="note" aria-label="Recolours every website with a dark theme (Dark Reader). Use the This site buttons below to make an exception for the page you are on." data-tip="Recolours every website with a dark theme (Dark Reader). Use the This site buttons below to make an exception for the page you are on.">?</i></span>
+            <span>Dark mode <em class="muted">(all sites)</em> <i class="tip" tabindex="0" role="note" aria-label="Darkens bright websites (Dark Reader). Sites that are dark already are left alone. Use the This site buttons below to force it on or off for the page you are on." data-tip="Darkens bright websites (Dark Reader). Sites that are dark already are left alone. Use the This site buttons below to force it on or off for the page you are on.">?</i></span>
             <input type="checkbox" id="t-darkmode-global" />
           </label>
           <div class="row sm site-override">
-            <span>This site <i class="tip" tabindex="0" role="note" aria-label="Auto follows the switch above. On or Off forces dark mode for this site only, whatever the switch above says." data-tip="Auto follows the switch above. On or Off forces dark mode for this site only, whatever the switch above says.">?</i></span>
+            <span>This site <i class="tip" tabindex="0" role="note" aria-label="Auto: when the switch above is on, this site is darkened only if it is bright. A site that is dark already is left alone. On or Off forces dark mode for this site only, whatever the switch above says." data-tip="Auto: when the switch above is on, this site is darkened only if it is bright. A site that is dark already is left alone. On or Off forces dark mode for this site only, whatever the switch above says.">?</i></span>
             <div class="seg" role="radiogroup" aria-label="Per-site dark mode">
               <button type="button" class="seg-btn" data-val="">Auto</button>
               <button type="button" class="seg-btn" data-val="on">On</button>
               <button type="button" class="seg-btn" data-val="off">Off</button>
             </div>
+          </div>
+          <div id="dark-auto-note" class="dark-auto-note muted" hidden>
+            <span id="dark-auto-text"></span>
+            <button type="button" class="link-btn" id="dark-auto-recheck" title="Forget what was measured and reload the page to measure again">Re-check</button>
           </div>
           <div class="row sm dark-tune-row">
             <button type="button" class="link-btn" id="open-dark-tune">Tune brightness / contrast →</button>
