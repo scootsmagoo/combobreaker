@@ -1,6 +1,14 @@
 // Media: network/DOM sniffer, direct downloads, on-page badge downloads, HLS page launcher.
 
 import { getGlobal } from "../lib/storage.js";
+import {
+  classifyByUrl,
+  classifyByMime,
+  isStreamSegment,
+  filenameFromUrl,
+  filenameForItem,
+  DIRECT_KINDS,
+} from "../lib/media.js";
 import { ytdlpDownload, ytdlpStatus } from "./ytdlp_bridge.js";
 
 // ---------- Media (video/audio) sniffer ----------
@@ -17,37 +25,6 @@ import { ytdlpDownload, ytdlpStatus } from "./ytdlp_bridge.js";
 
 const MEDIA_KEY = (tabId) => `media:${tabId}`;
 const MAX_MEDIA = 50;
-
-const MEDIA_URL_RE = /\.(m3u8|mpd|mp4|m4v|webm|mov|mkv|ogv|ogg|mp3|m4a|wav|flv|ts)(?:$|\?|#)/i;
-const MEDIA_MIME_RE = /^(video|audio)\//i;
-const HLS_MIME_RE = /^application\/(vnd\.apple\.mpegurl|x-mpegurl)/i;
-const DASH_MIME_RE = /^application\/dash\+xml/i;
-
-function classifyByUrl(url) {
-  const m = MEDIA_URL_RE.exec(url || "");
-  if (!m) return null;
-  const ext = m[1].toLowerCase();
-  if (ext === "m3u8") return "hls";
-  if (ext === "mpd") return "dash";
-  if (ext === "m4v") return "mp4";
-  if (ext === "ogv") return "ogg";
-  return ext;
-}
-
-function classifyByMime(mime) {
-  if (!mime) return null;
-  if (HLS_MIME_RE.test(mime)) return "hls";
-  if (DASH_MIME_RE.test(mime)) return "dash";
-  if (MEDIA_MIME_RE.test(mime)) {
-    const sub = mime.split("/")[1].split(";")[0].trim().toLowerCase();
-    if (sub === "mp4") return "mp4";
-    if (sub === "webm") return "webm";
-    if (sub === "ogg") return "ogg";
-    if (sub === "mpeg") return mime.startsWith("audio") ? "mp3" : "mpeg";
-    return sub || (mime.startsWith("audio") ? "audio" : "video");
-  }
-  return null;
-}
 
 export async function pushMediaItem(tabId, item) {
   if (tabId == null || tabId < 0 || !item || !item.url) return null;
@@ -100,9 +77,9 @@ chrome.webRequest.onResponseStarted.addListener(
     const kindByUrl = classifyByUrl(details.url);
     const kind = kindByMime || kindByUrl;
     if (!kind) return;
-    // .ts is the segment format for HLS. Listing each segment would spam
-    // the UI; we already track the parent .m3u8.
-    if (kindByUrl === "ts") return;
+    // Listing every segment of a stream would bury the list (and push the
+    // manifest out of it); the parent .m3u8 / .mpd is what gets tracked.
+    if (kindByUrl === "ts" || isStreamSegment(details.url, mime)) return;
     pushMediaItem(details.tabId, {
       url: details.url,
       kind,
@@ -129,27 +106,6 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 
 // ---------- Direct media download (mp4/webm/etc.) ----------
 
-function safeFilename(s) {
-  return String(s || "")
-    .replace(/[\\/:*?"<>|]+/g, "_")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 120);
-}
-
-function filenameFromUrl(url, fallbackTitle) {
-  try {
-    const u = new URL(url);
-    const tail = u.pathname.split("/").filter(Boolean).pop() || "";
-    if (tail && /\.[a-z0-9]{2,5}$/i.test(tail)) return safeFilename(tail);
-    const ext = (classifyByUrl(url) || "bin").toLowerCase();
-    const stem = safeFilename(fallbackTitle || u.hostname || "video");
-    return `${stem}.${ext === "mpeg" ? "mp3" : ext}`;
-  } catch {
-    return safeFilename(fallbackTitle || "download.bin");
-  }
-}
-
 export async function downloadMedia(url, filename) {
   if (!url || typeof url !== "string") throw new Error("url required");
   const fname = filename || filenameFromUrl(url);
@@ -169,29 +125,6 @@ export async function downloadMedia(url, filename) {
 // yt-dlp-only sources go to the native bridge when it's installed; otherwise
 // HLS falls back to the in-extension downloader page and everything else
 // falls back to "copy a yt-dlp command".
-
-const DIRECT_KINDS = new Set(["mp4", "webm", "mov", "mkv", "ogg", "mp3", "m4a", "wav", "video", "audio", "mpeg"]);
-
-const KIND_EXT = { video: "mp4", audio: "m4a", mpeg: "mp3", ytdlp: "mp4" };
-
-function filenameForItem(item, source) {
-  const raw = classifyByUrl(source.url) || source.kind || "mp4";
-  const ext = KIND_EXT[raw] || raw;
-  let stem = safeFilename(item && item.title ? item.title : "");
-  if (!stem || stem.length < 3) {
-    try {
-      stem = safeFilename(new URL(item && item.page ? item.page : source.url).hostname);
-    } catch {
-      stem = "video";
-    }
-  }
-  stem = stem.slice(0, 80);
-  let tag = "";
-  const m = item && item.page ? /\/status\/(\d+)/.exec(item.page) : null;
-  if (m) tag = ` [${m[1]}]`;
-  else if (source.res) tag = ` [${source.res}]`;
-  return `${stem}${tag}.${ext}`;
-}
 
 export async function overlayDownload(msg, sender) {
   const item = msg.item || {};

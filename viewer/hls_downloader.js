@@ -14,6 +14,8 @@
 //     hint to use ffmpeg.wasm (which would need to be vendored).
 //   - Live streams: we grab the *current* sliding window only.
 
+import { parseM3u8, detectContainer, rangeHeader } from "../lib/hls.js";
+
 const $ = (id) => document.getElementById(id);
 
 const params = new URLSearchParams(location.search);
@@ -145,6 +147,7 @@ async function prepareMediaPlaylist(parsed, playlistUrl, _rawText) {
   STATE.segments = parsed.segments;
   STATE.encryption = parsed.encryption;
   STATE.initSegmentUrl = parsed.initSegmentUrl;
+  STATE.initSegment = parsed.initSegment;
   STATE.isLive = !parsed.endlist;
   STATE.container = detectContainer(parsed);
 
@@ -189,18 +192,15 @@ async function prepareMediaPlaylist(parsed, playlistUrl, _rawText) {
   } else if (STATE.isLive) {
     log("Note: live stream. Only the current window of segments will be captured.");
   }
-}
-
-function detectContainer(parsed) {
-  if (parsed.initSegmentUrl) return "fmp4";
-  const first = parsed.segments[0];
-  if (!first) return "ts";
-  const ext = (first.url.match(/\.([a-z0-9]+)(?:$|\?|#)/i) || [])[1];
-  if (!ext) return "ts";
-  const e = ext.toLowerCase();
-  if (e === "m4s" || e === "mp4") return "fmp4";
-  if (e === "aac") return "aac";
-  return "ts";
+  if (parsed.segments.some((seg) => seg.range)) {
+    log("Byte-range playlist: each segment is fetched as its own range of the media file.");
+  }
+  if (parsed.mapCount > 1) {
+    log(
+      "Warning: the stream switches format part-way (several init segments, usually an ad break). " +
+        "Only the first is used, so the file may stop playing at the switch. The Helper handles this properly."
+    );
+  }
 }
 
 async function startDownload() {
@@ -225,7 +225,7 @@ async function startDownload() {
 
   if (STATE.initSegmentUrl) {
     log("Fetching init segment…");
-    const init = await fetchBytes(STATE.initSegmentUrl);
+    const init = await fetchBytes(STATE.initSegmentUrl, STATE.initSegment && STATE.initSegment.range);
     chunks.push(init);
     bytesSoFar += init.byteLength;
   }
@@ -239,11 +239,11 @@ async function startDownload() {
     const seg = segments[i];
     let buf;
     try {
-      buf = await fetchBytes(seg.url);
+      buf = await fetchBytes(seg.url, seg.range);
     } catch (e) {
       log(`Segment ${i + 1} failed: ${e.message}. Retrying once…`);
       try {
-        buf = await fetchBytes(seg.url);
+        buf = await fetchBytes(seg.url, seg.range);
       } catch (e2) {
         throw new Error(`Segment ${i + 1}/${total} failed: ${e2.message}`);
       }
@@ -282,127 +282,6 @@ async function startDownload() {
   }
 }
 
-// ---------- m3u8 parser ----------
-
-function parseM3u8(text, baseUrl) {
-  const lines = text.split(/\r?\n/);
-  const isMaster = lines.some((l) => l.startsWith("#EXT-X-STREAM-INF"));
-  if (isMaster) return parseMaster(lines, baseUrl);
-  return parseMedia(lines, baseUrl);
-}
-
-function parseMaster(lines, baseUrl) {
-  const variants = [];
-  let hasSeparateAudio = false;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (line.startsWith("#EXT-X-MEDIA:")) {
-      const attrs = parseAttrList(line.slice("#EXT-X-MEDIA:".length));
-      if ((attrs["TYPE"] || "").toUpperCase() === "AUDIO" && attrs["URI"]) hasSeparateAudio = true;
-      continue;
-    }
-    if (!line.startsWith("#EXT-X-STREAM-INF:")) continue;
-    const attrs = parseAttrList(line.slice("#EXT-X-STREAM-INF:".length));
-    let url = "";
-    for (let j = i + 1; j < lines.length; j++) {
-      const next = lines[j].trim();
-      if (!next || next.startsWith("#")) continue;
-      url = resolveUrl(next, baseUrl);
-      break;
-    }
-    if (!url) continue;
-    const res = attrs["RESOLUTION"];
-    variants.push({
-      url,
-      bandwidth: parseInt(attrs["BANDWIDTH"] || "0", 10) || null,
-      codecs: stripQuotes(attrs["CODECS"] || ""),
-      resolution: res || "",
-      frameRate: attrs["FRAME-RATE"] ? Number(attrs["FRAME-RATE"]) : null,
-    });
-  }
-  return { kind: "master", variants, hasSeparateAudio };
-}
-
-function parseMedia(lines, baseUrl) {
-  const segments = [];
-  let totalDuration = 0;
-  let pendingDuration = null;
-  let endlist = false;
-  let encryption = null;
-  let initSegmentUrl = null;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line) continue;
-    if (line.startsWith("#EXTINF:")) {
-      const num = parseFloat(line.slice("#EXTINF:".length));
-      pendingDuration = isNaN(num) ? null : num;
-      continue;
-    }
-    if (line.startsWith("#EXT-X-ENDLIST")) {
-      endlist = true;
-      continue;
-    }
-    if (line.startsWith("#EXT-X-KEY:")) {
-      const attrs = parseAttrList(line.slice("#EXT-X-KEY:".length));
-      const method = attrs["METHOD"] || "";
-      if (method && method !== "NONE") {
-        encryption = {
-          method,
-          uri: stripQuotes(attrs["URI"] || ""),
-          iv: attrs["IV"] || "",
-        };
-      } else {
-        encryption = null;
-      }
-      continue;
-    }
-    if (line.startsWith("#EXT-X-MAP:")) {
-      const attrs = parseAttrList(line.slice("#EXT-X-MAP:".length));
-      const uri = stripQuotes(attrs["URI"] || "");
-      if (uri) initSegmentUrl = resolveUrl(uri, baseUrl);
-      continue;
-    }
-    if (line.startsWith("#")) continue;
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    const url = resolveUrl(trimmed, baseUrl);
-    segments.push({ url, duration: pendingDuration });
-    if (pendingDuration) totalDuration += pendingDuration;
-    pendingDuration = null;
-  }
-
-  return {
-    kind: "media",
-    segments,
-    totalDuration,
-    endlist,
-    encryption,
-    initSegmentUrl,
-  };
-}
-
-function parseAttrList(s) {
-  const out = {};
-  const re = /([A-Z0-9-]+)=("[^"]*"|[^,]+)/g;
-  let m;
-  while ((m = re.exec(s))) out[m[1]] = m[2];
-  return out;
-}
-
-function stripQuotes(s) {
-  if (s.startsWith('"') && s.endsWith('"')) return s.slice(1, -1);
-  return s;
-}
-
-function resolveUrl(ref, base) {
-  try {
-    return new URL(ref, base).href;
-  } catch {
-    return ref;
-  }
-}
-
 // ---------- Network ----------
 
 async function fetchText(url) {
@@ -411,10 +290,20 @@ async function fetchText(url) {
   return await r.text();
 }
 
-async function fetchBytes(url) {
-  const r = await fetch(url, fetchOpts());
+// range: a segment's { offset, length } from #EXT-X-BYTERANGE, or null.
+async function fetchBytes(url, range) {
+  const opts = fetchOpts();
+  const header = rangeHeader(range);
+  if (header) opts.headers = { Range: header };
+  const r = await fetch(url, opts);
   if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`);
-  return await r.arrayBuffer();
+  const buf = await r.arrayBuffer();
+  // A server that ignores Range answers 200 with the whole file; cut the
+  // piece out rather than writing the file once per segment.
+  if (header && r.status === 200 && buf.byteLength > range.length) {
+    return buf.slice(range.offset, range.offset + range.length);
+  }
+  return buf;
 }
 
 function fetchOpts() {

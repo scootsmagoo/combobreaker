@@ -77,7 +77,8 @@ The extension has no build step and no runtime dependencies; `package.json` only
 npm install
 npm run check    # manifest references, DNR rule ids, import paths, UTF-8/no-BOM
 npm run lint     # ESLint
-npm test         # node:test unit tests (storage, backup, site helpers, DNR rule builders, tech signatures)
+npm test         # node:test unit tests (storage, backup, site helpers, DNR rule builders, tech signatures,
+                 # blocklist, cURL, HLS playlist parser, media classifier)
 npm run pack     # dist/combobreaker-<version>.zip with only runtime files
 ```
 
@@ -86,6 +87,7 @@ Browser smoke tests (need `npm i --no-save puppeteer-core` and a local Chrome):
 ```
 node scripts/smoke_site.js      # per-site CSS/JS, userScripts + fallback, snippets, site-data nuke, backup
 node scripts/smoke_overlay.js   # download badge on a local page and on YouTube
+node scripts/smoke_hls.js       # built-in HLS downloader: TS playlist, fMP4 byte ranges (server honours / ignores Range)
 node scripts/smoke_dark.js      # dark mode Auto: bright / dark / late CSS / late-rendering app / cached verdicts / overrides
 node scripts/smoke_privacy.js   # redirect chain, blocked counter, personal blocklist, third-party cookie strip, referrer override, auto-clear on close
 ```
@@ -145,6 +147,8 @@ lib/site_rules.js             Pure builders for per-site DNR rules (header overr
 lib/tech.js                   Tech stack signatures + matcher
 lib/trackers.js               Host → blocklist lookup for the tracker highlighter, personal blocklist validation
 lib/curl.js                   "Copy cURL" command builder
+lib/hls.js                    .m3u8 parser (master / media, byte ranges, encryption, init segments)
+lib/media.js                  Media classification by URL / MIME, stream-segment filter, download file names
 test/                         node:test unit tests (fake chrome.storage)
 scripts/                      check_manifest, pack, icon build, puppeteer smoke tests
 icons/                        PNG icons
@@ -223,7 +227,8 @@ protocol are in [`native/README.md`](native/README.md).
   into a `combobreaker/` subfolder.
 - **HLS** (`.m3u8`): `viewer/hls_downloader.html` parses the playlist, fetches
   segments, and writes a single `.ts`, or `.mp4` for fMP4 renditions (init
-  segment + segments). Separate audio renditions are not muxed; the page says
+  segment + segments). Byte-range playlists (`#EXT-X-BYTERANGE`, one media
+  file addressed in pieces) are fetched range by range. Separate audio renditions are not muxed; the page says
   so and offers the Helper when installed.
 - **DASH** (`.mpd`): detection only.
 
