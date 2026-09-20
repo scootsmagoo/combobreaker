@@ -1267,3 +1267,6 @@ dialog button[value="apply"], dialog button[value="save"], dialog button[value="
 .dark-auto-note[hidden] { display: none; }
 .dark-auto-note span { flex: 1; }
 .dark-auto-note .link-btn { font-size: 11px; }
+
+/* Link select status in the Browse tab */
+.browse-hint.warn { color: var(--warn); }

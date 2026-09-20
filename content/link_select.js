@@ -42,6 +42,57 @@
     if (area === "sync" && changes.global) applyGlobal(changes.global.newValue);
   });
 
+  // ---- "armed" feedback ----
+  //
+  // While the Z trigger is held (and nothing is being dragged yet) the cursor
+  // turns into a crosshair and a small pill says what to do. It answers "is
+  // this thing on?" on the page itself. 180 ms delay: tapping Z for a site's
+  // own shortcut never shows it.
+
+  let armedUi = null;
+  let armedTimer = 0;
+
+  function showArmed() {
+    if (armedUi || armedTimer) return;
+    armedTimer = setTimeout(() => {
+      armedTimer = 0;
+      if (!keyHeld || drag) return;
+      const host = document.createElement("div");
+      Object.assign(host.style, { position: "fixed", left: "12px", bottom: "12px", zIndex: "2147483647", pointerEvents: "none" });
+      const shadow = host.attachShadow({ mode: "closed" });
+      const pill = document.createElement("div");
+      pill.textContent = "Link select: drag over links";
+      Object.assign(pill.style, {
+        background: "#0c111d",
+        color: "#e7eaf3",
+        border: "1px solid #38bdf8",
+        borderRadius: "12px",
+        padding: "4px 10px",
+        font: '12px/1.4 -apple-system, "Segoe UI", sans-serif',
+      });
+      shadow.appendChild(pill);
+      const style = document.createElement("style");
+      style.textContent = "* { cursor: crosshair !important; }";
+      document.documentElement.append(host, style);
+      armedUi = { host, style };
+    }, 180);
+  }
+
+  function hideArmed() {
+    clearTimeout(armedTimer);
+    armedTimer = 0;
+    if (!armedUi) return;
+    armedUi.host.remove();
+    armedUi.style.remove();
+    armedUi = null;
+  }
+
+  // The popup asks whether link select is alive in this tab (Browse tab).
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    if (!msg || msg.type !== "cb-link-select-ping") return;
+    sendResponse({ enabled: cfg.enabled, trigger: cfg.trigger, action: cfg.action });
+  });
+
   // ---- trigger ----
 
   const inEditable = (el) => !!(el && (el.isContentEditable || /^(input|textarea|select)$/i.test(el.tagName)));
@@ -60,15 +111,23 @@
     (e) => {
       if (drag && drag.active) return onDragKey(e);
       if (cfg.trigger !== "z" || e.ctrlKey || e.metaKey || e.altKey) return;
-      if ((e.key === "z" || e.key === "Z") && !inEditable(e.target)) keyHeld = true;
+      // e.code as well: the physical Z key still works on layouts where it types something else.
+      if ((e.key === "z" || e.key === "Z" || e.code === "KeyZ") && cfg.enabled && !inEditable(e.target)) {
+        keyHeld = true;
+        showArmed();
+      }
     },
     true
   );
   window.addEventListener("keyup", (e) => {
-    if (e.key === "z" || e.key === "Z") keyHeld = false;
+    if (e.key === "z" || e.key === "Z" || e.code === "KeyZ") {
+      keyHeld = false;
+      hideArmed();
+    }
   }, true);
   window.addEventListener("blur", () => {
     keyHeld = false;
+    hideArmed();
     if (drag) cancel();
   });
 
@@ -246,6 +305,7 @@
   // ---- UI ----
 
   function begin() {
+    hideArmed();
     drag.active = true;
     drag.links = collectLinks();
     const host = document.createElement("div");

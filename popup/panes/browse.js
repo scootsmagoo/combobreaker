@@ -3,6 +3,10 @@
 import { $, STATE, sendMessage, status, escapeHtml } from "../shared.js";
 
 export function bindBrowsePane() {
+  $("link-select-options").addEventListener("click", async () => {
+    await sendMessage({ type: "open-options", section: "link-select" });
+    window.close();
+  });
   $("browse-reader").addEventListener("click", onReaderView);
   $("browse-structured-data").addEventListener("click", onStructuredDataView);
   $("browse-md-copy").addEventListener("click", onCopyMarkdown);
@@ -117,7 +121,36 @@ function sessionToMarkdown(s) {
   }).join("\n");
 }
 
+const TRIGGER_TEXT = { z: "hold Z and drag", shift: "hold Shift and drag", alt: "hold Alt and drag", right: "drag with the right mouse button" };
+const RELEASE_TEXT = { tabs: "open them in background tabs", window: "open them in a new window", copy: "copy them" };
+
+// Asks the content script in the tab whether link select is alive there. No
+// answer means it never loaded: a tab from before the extension was
+// (re)loaded, or a page Chrome keeps extensions out of.
+async function loadLinkSelectStatus() {
+  const el = $("link-select-status");
+  if (!STATE.tab || STATE.tab.id == null) return;
+  let pong = null;
+  try {
+    pong = await chrome.tabs.sendMessage(STATE.tab.id, { type: "cb-link-select-ping" }, { frameId: 0 });
+  } catch (_) {
+    // no listener in that tab
+  }
+  if (!pong) {
+    el.textContent = STATE.siteKey
+      ? "Not running in this tab yet: it was open before ComboBreaker was loaded or updated. Refresh the page."
+      : "Not available here: Chrome keeps extensions off its own pages (new tab, settings, the Web Store).";
+    el.classList.add("warn");
+    return;
+  }
+  el.classList.toggle("warn", !pong.enabled);
+  el.textContent = pong.enabled
+    ? `Ready on this page: ${TRIGGER_TEXT[pong.trigger]} over a group of links to ${RELEASE_TEXT[pong.action]}. While dragging: T tabs, W window, C copy, S smart select, Esc cancel.`
+    : "Switched off in settings.";
+}
+
 export function loadBrowse() {
+  loadLinkSelectStatus();
   (async () => {
     const ul = $("browse-sessions");
     try {

@@ -108,6 +108,25 @@ async function main() {
       if (key) await page.keyboard.up(key);
     };
 
+    // 0. Holding Z shows the "armed" crosshair; letting go removes it; a tap never shows it.
+    const crosshair = () => page.evaluate(() => getComputedStyle(document.body).cursor === "crosshair");
+    await page.keyboard.press("z");
+    await sleep(300);
+    const afterTap = await crosshair();
+    await page.keyboard.down("z");
+    await sleep(350);
+    const whileHeld = await crosshair();
+    await page.keyboard.up("z");
+    await sleep(50);
+    expect("armedFeedback", !afterTap && whileHeld && !(await crosshair()), { afterTap, whileHeld });
+
+    // The popup's status line asks the tab whether link select is alive there.
+    const pong = await opts.evaluate(async (u) => {
+      const [tab] = await chrome.tabs.query({ url: u });
+      return await chrome.tabs.sendMessage(tab.id, { type: "cb-link-select-ping" }, { frameId: 0 });
+    }, SITE + "/");
+    expect("ping", pong && pong.enabled === true && pong.trigger === "z" && pong.action === "tabs", pong);
+
     // 1. Z + drag, smart select: the three headlines, background tabs, in order.
     await dragOver({
       key: "z",
