@@ -71,9 +71,17 @@ async function cookieFileFor(url) {
 
 // ---------- port ----------
 
+// nativeMessaging is an optional permission (asked for on the Helper setup
+// page), so connectNative may not exist yet.
+export const NEEDS_PERMISSION = "ComboBreaker has not been allowed to talk to the Helper yet.";
+
 function ensurePort() {
   if (port) return port;
   portError = null;
+  if (!chrome.runtime.connectNative) {
+    portError = NEEDS_PERMISSION;
+    return null;
+  }
   try {
     port = chrome.runtime.connectNative(HOST_NAME);
   } catch (e) {
@@ -225,6 +233,12 @@ export async function ytdlpStatus(force = false) {
     };
   } catch (e) {
     value = { available: false, error: String((e && e.message) || e), ytdlp: null, ffmpeg: null };
+  }
+  value.needsPermission = !chrome.runtime.connectNative;
+  // Never cache "no permission": it changes the moment the user clicks Allow.
+  if (value.needsPermission) {
+    statusCache = null;
+    return value;
   }
   statusCache = { at: Date.now(), value };
   return value;

@@ -138,7 +138,7 @@ async function checkBridge(force) {
       .join("\n");
     setup.hidden = true;
   } else {
-    const notInstalled = /not installed/i.test(b.error || "");
+    const notInstalled = b.needsPermission || /not installed/i.test(b.error || "");
     dot.className = "bridge-dot err";
     text.textContent = notInstalled ? "Helper not set up · needed for YouTube" : `Helper: ${b.error || "not installed"}`;
     text.title = b.error || "";

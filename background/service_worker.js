@@ -232,7 +232,9 @@ async function getSiteState(siteKey) {
 
 async function getJavascriptSetting(siteKey) {
   const pattern = originPatternForSite(siteKey);
-  if (!pattern) return true;
+  // contentSettings is an optional permission, asked for the first time the
+  // JS switch is used; without it Chrome's default (allowed) is the truth.
+  if (!pattern || !chrome.contentSettings) return true;
   return new Promise((resolve) => {
     chrome.contentSettings.javascript.get(
       { primaryUrl: `https://${siteKey}/` },
@@ -247,6 +249,7 @@ async function getJavascriptSetting(siteKey) {
 async function setJsEnabled(siteKey, enabled) {
   const pattern = originPatternForSite(siteKey);
   if (!pattern) throw new Error("cannot set JS for non-http site");
+  if (!chrome.contentSettings) throw new Error("Allow the JavaScript switch first: flip it in the ComboBreaker popup and accept Chrome's prompt.");
   await new Promise((resolve, reject) => {
     chrome.contentSettings.javascript.set(
       {
@@ -282,6 +285,7 @@ chrome.commands.onCommand.addListener(async (command) => {
       await toggleDarkModeSite(siteKey);
       break;
     case "toggle-js": {
+      if (!chrome.contentSettings) break; // optional permission not granted yet: the popup's switch asks for it
       const current = await getJavascriptSetting(siteKey);
       await setJsEnabled(siteKey, !current);
       chrome.tabs.reload(tab.id);
@@ -294,7 +298,7 @@ chrome.commands.onCommand.addListener(async (command) => {
     // exists for people who bind it at chrome://extensions/shortcuts.
     case "nuke-site-data":
       await nukeSiteData(siteKey, tab.url);
-      chrome.notifications.create({
+      if (chrome.notifications) chrome.notifications.create({
         type: "basic",
         iconUrl: chrome.runtime.getURL("icons/icon128.png"),
         title: "Site data cleared",

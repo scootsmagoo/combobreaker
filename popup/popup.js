@@ -292,6 +292,17 @@ function bindSitePane() {
   $("t-js").addEventListener("change", async (e) => {
     if (!STATE.siteKey) return;
     const enabled = e.target.checked;
+    // contentSettings is an optional permission. Chrome's prompt closes this
+    // popup, so after allowing it the switch has to be flipped once more.
+    const allowed = await chrome.permissions.contains({ permissions: ["contentSettings"] });
+    if (!allowed) {
+      e.target.checked = !enabled;
+      status("Chrome will ask once for permission to change site settings. Allow it, then flip this switch again.", "ok");
+      const granted = await chrome.permissions.request({ permissions: ["contentSettings"] }).catch(() => false);
+      if (!granted) status("Not allowed, so the JavaScript switch stays as it was.", "err");
+      else status("Allowed. Flip the switch again to apply it.", "ok");
+      return;
+    }
     await sendMessage({ type: "set-js-enabled", siteKey: STATE.siteKey, enabled });
     status(`JS ${enabled ? "enabled" : "blocked"}. Reloading…`, "ok");
     setTimeout(() => chrome.tabs.reload(STATE.tab.id), 250);

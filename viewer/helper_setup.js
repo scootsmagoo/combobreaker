@@ -59,6 +59,7 @@ async function check(force) {
     const parts = [`yt-dlp ${s.ytdlp && s.ytdlp.version ? s.ytdlp.version : ""}`.trim()];
     parts.push(s.ffmpeg ? `ffmpeg ${s.ffmpeg.version || ""}`.trim() : "ffmpeg missing");
     setStatus("ok", "Helper connected", parts.join(" · "));
+    $("allow").hidden = true;
     $("steps-posix").hidden = true;
     $("steps-win").hidden = true;
     $("done").hidden = false;
@@ -67,6 +68,12 @@ async function check(force) {
     return;
   }
   connected = false;
+  $("allow").hidden = !s.needsPermission;
+  if (s.needsPermission) {
+    setStatus("waiting", "One permission first", "Click Allow below, then install the Helper if you have not already.");
+    showSteps();
+    return;
+  }
   const err = s.error || "not installed";
   const installedButBroken = !/not installed/i.test(err);
   setStatus(installedButBroken ? "err" : "waiting",
@@ -93,7 +100,23 @@ function stopPolling() {
   pollTimer = null;
 }
 
+// nativeMessaging is optional, so it has to be asked for from a click.
+function bindAllow() {
+  $("allow-btn").addEventListener("click", async () => {
+    let granted = false;
+    try {
+      granted = await chrome.permissions.request({ permissions: ["nativeMessaging"] });
+    } catch (e) {
+      setStatus("err", "Chrome refused the request", String(e.message || e));
+      return;
+    }
+    if (!granted) return setStatus("waiting", "Not allowed", "Without it ComboBreaker cannot reach the Helper. Click Allow to try again.");
+    check(true);
+  });
+}
+
 async function init() {
+  bindAllow();
   const id = chrome.runtime.id;
   try {
     const info = await chrome.runtime.getPlatformInfo();

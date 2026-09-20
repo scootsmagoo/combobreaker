@@ -57,6 +57,7 @@ async function init() {
 
   bindDarkTuneInputs();
   bindLinkSelect(g);
+  bindNotify();
   bindDarkVerdicts();
   bindCustomBlock();
   bindDownloads(g);
@@ -332,6 +333,22 @@ async function bindDarkVerdicts() {
     if (area === "local" && changes[DARK_DETECT_KEY]) render();
   });
   await render();
+}
+
+// Notifications are an optional permission: the switch *is* the permission.
+async function bindNotify() {
+  const el = $("g-notify");
+  el.checked = await chrome.permissions.contains({ permissions: ["notifications"] });
+  el.addEventListener("change", async () => {
+    if (el.checked) {
+      const granted = await chrome.permissions.request({ permissions: ["notifications"] }).catch(() => false);
+      el.checked = !!granted;
+      toast(granted ? "Download notifications on" : "Not allowed, notifications stay off", granted ? "ok" : "err");
+    } else {
+      await chrome.permissions.remove({ permissions: ["notifications"] }).catch(() => {});
+      toast("Download notifications off", "ok");
+    }
+  });
 }
 
 // Link select settings (content/link_select.js picks changes up live).
@@ -729,9 +746,9 @@ async function checkBridge(force) {
     setup.className = "text-btn";
     update.hidden = false;
   } else {
-    const notInstalled = /not installed/i.test(res.error || "");
+    const notInstalled = res.needsPermission || /not installed/i.test(res.error || "");
     dot.className = "bridge-dot err";
-    text.textContent = notInstalled ? "Not set up yet" : `Needs a repair: ${res.error || "unknown"}`;
+    text.textContent = res.needsPermission ? "Not allowed yet: the setup page asks for it" : notInstalled ? "Not set up yet" : `Needs a repair: ${res.error || "unknown"}`;
     text.title = res.error || "";
     setup.textContent = notInstalled ? "Set up the Helper" : "Repair the Helper";
     setup.className = "primary-btn";

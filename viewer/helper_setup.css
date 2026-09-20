@@ -123,3 +123,6 @@ button:disabled { opacity: .55; cursor: default; }
   padding: 8px 14px; border-radius: 8px; font-size: 14px;
   box-shadow: 0 6px 20px rgba(0,0,0,.3);
 }
+
+/* The permission step comes before the numbered install steps. */
+#allow li::before { content: "!"; }

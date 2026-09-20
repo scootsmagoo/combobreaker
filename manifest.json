@@ -36,19 +36,19 @@
     "tabs",
     "windows",
     "scripting",
-    "contentSettings",
     "declarativeNetRequest",
     "declarativeNetRequestFeedback",
     "downloads",
     "cookies",
     "webRequest",
-    "nativeMessaging",
-    "notifications",
     "userScripts",
     "browsingData"
   ],
   "optional_permissions": [
-    "clipboardWrite"
+    "clipboardWrite",
+    "contentSettings",
+    "nativeMessaging",
+    "notifications"
   ],
   "host_permissions": [
     "<all_urls>"

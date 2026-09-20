@@ -164,7 +164,8 @@ export async function overlayDownload(msg, sender) {
   return {
     mode: "needs-helper",
     reason: status.error || "Helper not installed.",
-    installed: !/not installed/i.test(status.error || ""),
+    // "Installed but broken" asks for a repair; a missing permission is just "not set up yet".
+    installed: !status.needsPermission && !/not installed/i.test(status.error || ""),
   };
 }
 

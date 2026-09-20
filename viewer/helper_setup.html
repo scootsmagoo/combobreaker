@@ -35,6 +35,21 @@
         <button type="button" id="recheck" class="ghost">Check again</button>
       </section>
 
+      <!-- Shown until the optional nativeMessaging permission is granted -->
+      <section id="allow" class="steps" hidden>
+        <ol>
+          <li>
+            <h2>Allow ComboBreaker to talk to the Helper</h2>
+            <p>
+              Chrome asks once before an extension may exchange messages with a program on your
+              computer. ComboBreaker only ever talks to its own Helper, and only to start and follow
+              the downloads you ask for.
+            </p>
+            <p><button type="button" id="allow-btn" class="primary">Allow</button></p>
+          </li>
+        </ol>
+      </section>
+
       <!-- macOS / Linux -->
       <section id="steps-posix" class="steps" hidden>
         <ol>
