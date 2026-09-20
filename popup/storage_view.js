@@ -50,6 +50,7 @@ export function initStorageView(ctx) {
   });
   $("storage-refresh").addEventListener("click", load);
   $("storage-add").addEventListener("click", () => openDialog(null));
+  $("storage-export").addEventListener("click", exportAll);
   $("storage-clear").addEventListener("click", clearAll);
   $("storage-save").addEventListener("click", save);
 }
@@ -200,6 +201,24 @@ async function save(e) {
     CTX.status(String(err.message || err), "err");
   }
   load();
+}
+
+// Full values (the list view clips long ones), JSON values parsed so the file
+// is readable.
+async function exportAll() {
+  try {
+    const data = await inTab(pageRead, [KIND, Number.MAX_SAFE_INTEGER]);
+    const entries = {};
+    for (const e of data.entries) entries[e.key] = looksJson(e.value) ? JSON.parse(e.value) : e.value;
+    const out = { origin: data.origin, storage: label(), exportedAt: new Date().toISOString(), entries };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: "application/json" }));
+    const host = new URL(data.origin).host.replace(/[^a-z0-9.-]/gi, "_");
+    await chrome.downloads.download({ url, filename: `combobreaker/${label()}-${host}.json` });
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    CTX.status(`Exported ${data.entries.length} key${data.entries.length === 1 ? "" : "s"} to Downloads/combobreaker`, "ok");
+  } catch (err) {
+    CTX.status(String(err.message || err), "err");
+  }
 }
 
 async function clearAll() {

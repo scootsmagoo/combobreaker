@@ -279,5 +279,17 @@ chrome.commands.onCommand.addListener(async (command) => {
     case "pick-color":
       await launchTool("color-picker", tab.id, { tab });
       break;
+    // Ships without a key: it is destructive and asks nothing, so it only
+    // exists for people who bind it at chrome://extensions/shortcuts.
+    case "nuke-site-data":
+      await nukeSiteData(siteKey, tab.url);
+      chrome.notifications.create({
+        type: "basic",
+        iconUrl: chrome.runtime.getURL("icons/icon128.png"),
+        title: "Site data cleared",
+        message: `Cookies, storage, caches and service workers for ${siteKey} are gone. Reloading the tab.`,
+      });
+      chrome.tabs.reload(tab.id);
+      break;
   }
 });

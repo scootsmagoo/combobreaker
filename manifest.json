@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ComboBreaker",
   "short_name": "ComboBreaker",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "One privacy-respecting toolbox instead of a dozen small extensions: per-site JS/CSS, dark mode, dev tools, downloader. No telemetry.",
   "author": "scootsmagoo",
   "minimum_chrome_version": "120",
@@ -171,6 +171,9 @@
     },
     "toggle-js": {
       "description": "Toggle JavaScript for the current site"
+    },
+    "nuke-site-data": {
+      "description": "Nuke all site data for the current site (no shortcut until you set one)"
     },
     "pick-color": {
       "suggested_key": {

@@ -1,9 +1,18 @@
 // Headers pane: the main document's response headers plus a summary of this site's overrides.
 
 import { $, STATE, sendMessage, status, escapeHtml } from "../shared.js";
+import { buildCurl } from "../../lib/curl.js";
+
+let LAST = { url: "", overrides: [] }; // what Copy cURL works from
 
 export function bindHeadersPane() {
   $("headers-refresh").addEventListener("click", () => loadHeaders(true));
+  $("headers-curl").addEventListener("click", async () => {
+    const cmd = buildCurl(LAST.url || (STATE.tab && STATE.tab.url), { userAgent: navigator.userAgent, overrides: LAST.overrides });
+    if (!cmd) return status("cURL needs an http(s) page.", "err");
+    await navigator.clipboard.writeText(cmd);
+    status("curl command copied (no cookies included)", "ok");
+  });
   $("headers-edit").addEventListener("click", async () => {
     if (!STATE.siteKey) {
       status("Per-site overrides need an http(s) page.", "err");
@@ -26,6 +35,7 @@ export async function loadHeaders(_force = false) {
       sendMessage({ type: "get-response-headers", tabId: STATE.tab.id }),
       STATE.siteKey ? sendMessage({ type: "get-site-state", siteKey: STATE.siteKey }) : Promise.resolve(null),
     ]);
+    LAST = { url: (entry && entry.url) || "", overrides: (settings && settings.settings.requestHeaders) || [] };
     renderHeaders(entry);
     renderOverrideSummary(settings ? settings.settings : null);
   } catch (e) {

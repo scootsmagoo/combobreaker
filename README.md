@@ -26,14 +26,15 @@ Inspired by the spirit of [@levelsio's combo-extension thread](https://x.com/lev
 | **Reader view** | **Browse** tab: extract the main article with [Mozilla Readability](https://github.com/mozilla/readability) and open a clean **reader** tab. Optional **Copy as Markdown** uses [Turndown](https://github.com/mixmark-io/turndown) for notes or LLM workflows. Vendored under `vendor/`. |
 | **SEO & structured data** | **Browse** → **View SEO & structured data**: a **Meta & SEO** section (title and description with lengths, canonical, robots, lang, viewport, Open Graph / Twitter tags, heading outline, link counts, images missing `alt`, with rule-of-thumb check chips), then list every `<script type="application/ld+json">` block, summarize `@type`, pretty-print, copy, heuristic notes, microdata and RDFa summaries, and **links to Google’s Rich Results Test and the Schema.org validator** for the current tab URL. Includes a small **JSON-LD builder** (common types) to generate and copy markup — all local; optional validator links are the only use of the network. |
 | **Encoding override** | Manually set character encoding for legacy/garbled pages. |
-| **Cookies, storage, headers, redirects** | **Cookies** tab: list, edit, or delete cookies for the current site, switch to **Local storage** / **Session storage** to view (JSON pretty-printed), copy, edit, add or delete keys and see the page's IndexedDB / Cache Storage names, plus **Nuke all site data** (cookies, localStorage, IndexedDB, Cache Storage, service workers — DevTools' “Clear site data” in one click). **Headers** tab: recent response header captures plus quick link to your request/response **header overrides** in options. **Redirects** tab: redirect chain for the current tab, copy, clear. |
+| **Cookies, storage, headers, redirects** | **Cookies** tab: list, edit, or delete cookies for the current site, switch to **Local storage** / **Session storage** to view (JSON pretty-printed), copy, edit, add, delete or **Export** keys as JSON and see the page's IndexedDB / Cache Storage names, plus **Nuke all site data** (cookies, localStorage, IndexedDB, Cache Storage, service workers — DevTools' “Clear site data” in one click). **Headers** tab: recent response header captures, **Copy cURL** (repeats the request from a terminal with your request-header overrides, never cookies), plus quick link to your request/response **header overrides** in options. **Redirects** tab: redirect chain for the current tab, copy, clear. |
 | **Browse tools** | **Viewport / User-Agent** presets (resize window + optional UA for this site via DNR), **tab session** save/restore, **find duplicate** URLs and close extras, and **skip cache** for the current tab’s requests while the popup is open (see service worker for details). |
 | **Utility belt** | Tucked into the **Tools** tab — JWT decoder, encoder/decoder (Base64 / Base64-URL / URL / hex / HTML entity), regex tester with live highlights, Unix-timestamp ↔ ISO-date converter, color converter (hex / rgb / hsl / oklch) with WCAG contrast checker, line/word diff viewer, fake data + lorem-ipsum generator, password / UUID generator, and a locally rendered QR code for the current URL. Each tool is a `<details>` collapsible — open only what you need. Client-side only; no network. |
 | **Kagi search** | Sets Kagi as your default search provider on install. Chrome only lets a manifest declare this, so it can't be toggled at runtime — decline Chrome's prompt, or delete `chrome_settings_overrides` from `manifest.json`, if you don't want it. |
 | **Backup** | Options → **Backup**: export / import every setting (global, per-site CSS/JS/headers, snippets, tab sessions) as one JSON file. |
 | **Ad & tracker blocking** | Three levels, set from the popup's Site tab: **Off**, **Basic** (a hand-picked `declarativeNetRequest` list of ~40 of the biggest ad, analytics and social-pixel companies; very unlikely to break anything) and **Strong** (Basic plus [Peter Lowe's list](https://pgl.yoyo.org/adservers/) of ~3,500 ad and tracking servers, third-party requests only). **Pause on this site** switches blocking off for one site, e.g. when something breaks or you need its analytics / tag manager to load. The toolbar icon shows how many requests were blocked on the current page (switch it off in options) and the Site tab names the companies. It blocks network requests only: no cosmetic filtering, no YouTube ads. Run uBlock Origin Lite alongside if you want those. The Strong list is regenerated weekly by `.github/workflows/blocklist.yml`, which opens a PR (or run `node scripts/update_blocklist.js` yourself); the extension never fetches it at runtime. |
 | **Per-site privacy** | Site tab, three switches for the site you are on. **Forget this site when I close it**: when its last tab closes, the same wipe as *Nuke all site data* runs (also swept at browser start, since quitting can outrun the cleanup). **Block third-party cookies here**: requests the site's pages make to other companies go out without cookies and cannot set any (DNR header rules; link navigations are untouched, requests from inside third-party iframes are not covered). **Referrer sent by this site**: origin only / nothing to other sites / never, as a `Referrer-Policy` response header plus a `Referer` strip for the strict options. |
-| **Tracker highlighter** | **Tools → Show trackers**: a visual privacy audit of the page. Outlines images and frames from hosts on the Basic / Strong lists, marks hidden third-party pixels and iframes, and lists every tracker host (scripts and fetch/beacon requests included) with whether your current blocking level stops it. Click a row to scroll to it; Esc closes. Read-only. |
+| **Tracker highlighter** | **Tools → Show trackers**: a visual privacy audit of the page. Outlines images and frames from hosts on the Basic / Strong lists, marks hidden third-party pixels and iframes, and lists every tracker host (scripts and fetch/beacon requests included) with whether your current blocking level stops it. Click a row to scroll to it; **Block** adds a host that is getting through to your blocklist; Esc closes. |
+| **Your blocklist** | Extra hosts to block, added with the highlighter's **Block** button or edited in Options → **Your blocklist** (one per line; URLs and `*.` prefixes are accepted, IPs and junk are dropped). One dynamic DNR rule, third-party only, so opening a blocked host directly still works. Follows the blocking level (nothing on Off) and per-site pause. Local to the device, included in Backup. |
 | **Tech stack** | Site tab → **Built with**: framework, CMS, analytics, services and hosting chips from ~75 local signatures (page globals, DOM, script URLs, response headers). No network calls. |
 
 ## Install (developer mode)
@@ -89,7 +90,7 @@ Browser smoke tests (need `npm i --no-save puppeteer-core` and a local Chrome):
 node scripts/smoke_site.js      # per-site CSS/JS, userScripts + fallback, snippets, site-data nuke, backup
 node scripts/smoke_overlay.js   # download badge on a local page and on YouTube
 node scripts/smoke_dark.js      # dark mode Auto: bright / dark / late CSS / late-rendering app / cached verdicts / overrides
-node scripts/smoke_privacy.js   # blocked counter, third-party cookie strip, referrer override, auto-clear on close
+node scripts/smoke_privacy.js   # redirect chain, blocked counter, personal blocklist, third-party cookie strip, referrer override, auto-clear on close
 ```
 
 CI (`.github/workflows/ci.yml`) runs check, lint, test and pack on every push.
@@ -103,6 +104,8 @@ Source files are UTF-8 without BOM, LF line endings (`.editorconfig`, `.gitattri
 | `Alt+C` | Open popup |
 | `Alt+Shift+D` | Toggle dark mode for current site |
 | `Alt+Shift+C` | Pick a color from the page |
+| *(unset)* | Toggle JavaScript for the current site |
+| *(unset)* | Nuke all site data for the current site, then reload. Destructive and asks nothing, so it has no key until you give it one. |
 
 You can rebind these in `chrome://extensions/shortcuts`.
 
@@ -142,7 +145,8 @@ popup/storage_view.js         localStorage / sessionStorage viewer in the Cookie
 lib/                          storage (sync/local split, migrations), backup, site URL helpers
 lib/site_rules.js             Pure builders for per-site DNR rules (header overrides, cookie strip, referrer)
 lib/tech.js                   Tech stack signatures + matcher
-lib/trackers.js               Host → blocklist lookup for the tracker highlighter
+lib/trackers.js               Host → blocklist lookup for the tracker highlighter, personal blocklist validation
+lib/curl.js                   "Copy cURL" command builder
 test/                         node:test unit tests (fake chrome.storage)
 scripts/                      check_manifest, pack, icon build, puppeteer smoke tests
 icons/                        PNG icons
