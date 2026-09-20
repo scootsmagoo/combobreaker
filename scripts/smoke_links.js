@@ -179,6 +179,31 @@ async function main() {
     await page.goto(SITE + "/", { waitUntil: "load" });
     await sleep(300);
 
+    // 4b. Sticky start (keyboard command / popup button): no key held, one plain drag, then back to normal.
+    const armTab = () =>
+      opts.evaluate(async (u) => {
+        const [tab] = await chrome.tabs.query({ url: u });
+        return await chrome.tabs.sendMessage(tab.id, { type: "cb-link-select-arm" }, { frameId: 0 });
+      }, SITE + "/");
+    const armed = await armTab();
+    await page.bringToFront();
+    await sleep(200);
+    const armedCursor = await crosshair();
+    await dragOver({});
+    const stickyTabs = await openedTabs(page);
+    await dragOver({});
+    const afterOneShot = await openedTabs(page);
+    await armTab();
+    await page.bringToFront();
+    await page.keyboard.press("Escape");
+    await dragOver({});
+    const afterEscape = await openedTabs(page);
+    expect(
+      "stickyStart",
+      armed.armed === true && armedCursor && stickyTabs.length === 3 && afterOneShot.length === 0 && afterEscape.length === 0 && !(await crosshair()),
+      { armed, armedCursor, sticky: stickyTabs.length, afterOneShot: afterOneShot.length, afterEscape: afterEscape.length }
+    );
+
     // 5. Right-button trigger: opens the links and swallows the context menu;
     //    a right click without a drag still gets its menu event.
     await setLinkSelect({ trigger: "right" });

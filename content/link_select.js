@@ -4,6 +4,11 @@
 //
 // While dragging:  T tabs · W window · C copy · S smart select on/off · Esc cancel
 //
+// Holding a key while moving is unreliable on laptop trackpads (macOS and
+// Windows both damp trackpad input while keys are down), so there is also a
+// "sticky" start: the select-links keyboard command or the popup's button arms
+// the page, and the next plain drag is a selection. No key held.
+//
 // Runs in the top frame of every page but does nothing until the trigger is
 // used. The box and highlights live in a closed shadow root and use page
 // coordinates, so scrolling mid-drag extends the selection. Cleaning, capping
@@ -20,6 +25,7 @@
 
   let cfg = { enabled: true, trigger: "z", action: "tabs", copyFormat: "urls", smart: true };
   let keyHeld = false; // the Z trigger
+  let sticky = false; // armed by the keyboard command / popup: the next plain drag selects
   let drag = null; // state of the selection in progress
   let suppressClick = false;
   let suppressMenu = false;
@@ -52,16 +58,16 @@
   let armedUi = null;
   let armedTimer = 0;
 
-  function showArmed() {
+  function showArmed(text = "Link select: drag over links", delay = 180) {
     if (armedUi || armedTimer) return;
     armedTimer = setTimeout(() => {
       armedTimer = 0;
-      if (!keyHeld || drag) return;
+      if (!(keyHeld || sticky) || drag) return;
       const host = document.createElement("div");
       Object.assign(host.style, { position: "fixed", left: "12px", bottom: "12px", zIndex: "2147483647", pointerEvents: "none" });
       const shadow = host.attachShadow({ mode: "closed" });
       const pill = document.createElement("div");
-      pill.textContent = "Link select: drag over links";
+      pill.textContent = text;
       Object.assign(pill.style, {
         background: "#0c111d",
         color: "#e7eaf3",
@@ -75,7 +81,20 @@
       style.textContent = "* { cursor: crosshair !important; }";
       document.documentElement.append(host, style);
       armedUi = { host, style };
-    }, 180);
+    }, delay);
+  }
+
+  function arm() {
+    if (!cfg.enabled) return false;
+    sticky = true;
+    hideArmed();
+    showArmed("Link select: drag over links · Esc to cancel", 0);
+    return true;
+  }
+
+  function disarm() {
+    sticky = false;
+    if (!keyHeld) hideArmed();
   }
 
   function hideArmed() {
@@ -89,8 +108,14 @@
 
   // The popup asks whether link select is alive in this tab (Browse tab).
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    if (!msg || msg.type !== "cb-link-select-ping") return;
-    sendResponse({ enabled: cfg.enabled, trigger: cfg.trigger, action: cfg.action });
+    if (!msg) return;
+    if (msg.type === "cb-link-select-ping") sendResponse({ enabled: cfg.enabled, trigger: cfg.trigger, action: cfg.action });
+    else if (msg.type === "cb-link-select-arm") {
+      // Asking again while armed switches it back off.
+      if (sticky) disarm();
+      else arm();
+      sendResponse({ armed: sticky });
+    }
   });
 
   // ---- trigger ----
@@ -99,6 +124,7 @@
 
   function triggerActive(e) {
     if (!cfg.enabled) return false;
+    if (sticky) return e.button === 0;
     if (cfg.trigger === "right") return e.button === 2;
     if (e.button !== 0) return false;
     if (cfg.trigger === "shift") return e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey;
@@ -110,6 +136,12 @@
     "keydown",
     (e) => {
       if (drag && drag.active) return onDragKey(e);
+      if (sticky && e.key === "Escape") {
+        disarm();
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       if (cfg.trigger !== "z" || e.ctrlKey || e.metaKey || e.altKey) return;
       // e.code as well: the physical Z key still works on layouts where it types something else.
       if ((e.key === "z" || e.key === "Z" || e.code === "KeyZ") && cfg.enabled && !inEditable(e.target)) {
@@ -139,7 +171,7 @@
       if (drag || !triggerActive(e) || inEditable(e.target)) return;
       // Stops text selection and native link dragging. A press that never
       // becomes a drag still produces its normal click / context menu.
-      if (cfg.trigger !== "right") e.preventDefault();
+      if (sticky || cfg.trigger !== "right") e.preventDefault();
       drag = {
         active: false,
         button: e.button,
@@ -408,6 +440,7 @@
 
   function teardown() {
     if (!drag) return;
+    if (drag.active) disarm(); // sticky mode is good for one selection
     if (drag.raf) cancelAnimationFrame(drag.raf);
     if (drag.ui) {
       drag.ui.host.remove();

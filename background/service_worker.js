@@ -266,6 +266,11 @@ async function setJsEnabled(siteKey, enabled) {
 chrome.commands.onCommand.addListener(async (command) => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab) return;
+  if (command === "select-links") {
+    // No answer = the tab predates the extension or is a page Chrome keeps us out of.
+    chrome.tabs.sendMessage(tab.id, { type: "cb-link-select-arm" }, { frameId: 0 }).catch(() => {});
+    return;
+  }
   const siteKey = siteKeyFromUrl(tab.url);
   if (!siteKey) return;
 

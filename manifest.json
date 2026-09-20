@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ComboBreaker",
   "short_name": "ComboBreaker",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "One privacy-respecting toolbox instead of a dozen small extensions: per-site JS/CSS, dark mode, dev tools, downloader. No telemetry.",
   "author": "scootsmagoo",
   "minimum_chrome_version": "120",
@@ -171,6 +171,12 @@
     },
     "toggle-js": {
       "description": "Toggle JavaScript for the current site"
+    },
+    "select-links": {
+      "suggested_key": {
+        "default": "Alt+Shift+L"
+      },
+      "description": "Link select: make the next drag select links (no key to hold; for trackpads)"
     },
     "nuke-site-data": {
       "description": "Nuke all site data for the current site (no shortcut until you set one)"

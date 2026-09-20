@@ -3,6 +3,14 @@
 import { $, STATE, sendMessage, status, escapeHtml } from "../shared.js";
 
 export function bindBrowsePane() {
+  $("link-select-arm").addEventListener("click", async () => {
+    try {
+      await chrome.tabs.sendMessage(STATE.tab.id, { type: "cb-link-select-arm" }, { frameId: 0 });
+      window.close();
+    } catch (_) {
+      status("Link select is not running in this tab. Refresh the page first.", "err");
+    }
+  });
   $("link-select-options").addEventListener("click", async () => {
     await sendMessage({ type: "open-options", section: "link-select" });
     window.close();
@@ -145,7 +153,7 @@ async function loadLinkSelectStatus() {
   }
   el.classList.toggle("warn", !pong.enabled);
   el.textContent = pong.enabled
-    ? `Ready on this page: ${TRIGGER_TEXT[pong.trigger]} over a group of links to ${RELEASE_TEXT[pong.action]}. While dragging: T tabs, W window, C copy, S smart select, Esc cancel.`
+    ? `Ready on this page: ${TRIGGER_TEXT[pong.trigger]} over a group of links to ${RELEASE_TEXT[pong.action]}. On a trackpad, press Alt+Shift+L (or the button below) and then just drag. While dragging: T tabs, W window, C copy, S smart select, Esc cancel.`
     : "Switched off in settings.";
 }
 
