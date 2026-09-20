@@ -38,6 +38,12 @@
 
   // ---------- settings ----------
 
+  // Chrome Web Store installs carry an update_url; side-loaded ones do not.
+  // The store does not allow extensions to offer YouTube downloads, so a store
+  // install shows no badge on YouTube unless the user turns badges on for that
+  // site themselves (popup → Media, or the per-site setting in options).
+  const STORE_INSTALL = !!chrome.runtime.getManifest().update_url;
+
   let ENABLED = true;
   let SITE_KEY = HOST.startsWith("www.") ? HOST.slice(4) : HOST;
 
@@ -47,9 +53,10 @@
       const site = data[`site:${SITE_KEY}`] || {};
       const global = data.global || {};
       const g = global.mediaOverlayEnabled !== false;
-      ENABLED = site.mediaOverlay === true ? true : site.mediaOverlay === false ? false : g;
+      const byDefault = IS_YOUTUBE && STORE_INSTALL ? false : g;
+      ENABLED = site.mediaOverlay === true ? true : site.mediaOverlay === false ? false : byDefault;
     } catch {
-      ENABLED = true;
+      ENABLED = !(IS_YOUTUBE && STORE_INSTALL);
     }
     if (!ENABLED) hideBadge(true);
   }

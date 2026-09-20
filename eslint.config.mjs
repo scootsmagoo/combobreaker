@@ -34,7 +34,7 @@ export default [
   },
   {
     // page.evaluate() callbacks run in the browser.
-    files: ["scripts/smoke_*.js"],
+    files: ["scripts/smoke_*.js", "scripts/store_screenshots.js"],
     languageOptions: { globals: { ...globals.browser, ...chrome } },
   },
   {

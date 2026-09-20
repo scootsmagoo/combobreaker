@@ -1,8 +1,32 @@
 # Chrome Web Store listing
 
 Everything the developer dashboard asks for, ready to paste. Written against
-the manifest as of v0.10.1; if permissions change, update the table below in
+the manifest as of v0.11.0; if permissions change, update the table below in
 the same commit.
+
+## Publishing checklist
+
+1. `npm run check && npm run lint && npm test`, then `npm run pack` →
+   `dist/combobreaker-<version>.zip`. That zip is the upload; there is no
+   separate store build (the one store-specific behaviour, no download badge
+   on YouTube by default, is decided at runtime from the manifest's
+   `update_url`, which only store installs have).
+2. Register at https://chrome.google.com/webstore/devconsole (one-time US$5),
+   **New item**, upload the zip.
+3. **Store listing** tab: paste the summary and description below, category,
+   language, upload the five PNGs from `docs/store/` and the 128px icon
+   (`icons/icon128.png`). A 440×280 small promo tile is optional; there is
+   none yet.
+4. **Privacy practices** tab: single purpose, the permission justifications,
+   "no remote code", the data-usage answers, and the privacy policy URL
+   `https://github.com/scootsmagoo/combobreaker/blob/main/docs/PRIVACY.md`.
+5. **Distribution**: free, all regions, public (or unlisted for a first round).
+6. Submit. Expect an in-depth review (broad host permission); days, sometimes
+   longer. A rejection email names the policy; "Known review risks" below
+   lists the likely ones and what to change.
+7. After approval: the store install has a different extension ID from the
+   unpacked one, so Helper users re-run the setup command from the setup page
+   once (it carries the right ID).
 
 ## Store listing tab
 
@@ -72,17 +96,15 @@ Source code, issue tracker and documentation:
 https://github.com/scootsmagoo/combobreaker
 ```
 
-**Screenshots** (1280×800 or 640×400, up to five). Suggested set:
+**Screenshots** (1280×800, five): generated into `docs/store/` by
+`node scripts/store_screenshots.js` from a staged demo news site, so they can
+be regenerated after any UI change.
 
-1. Popup, Site tab on a news site: "Your changes here" chips, dark mode, blocking level, blocked count.
-2. Tracker highlighter panel over a page, with blocked / not blocked rows.
-3. Link select mid-drag on a list of headlines.
-4. Cookies tab showing the localStorage viewer.
-5. SEO & structured data viewer.
-
-`scripts/smoke_*.js` already drive all five states in a real browser and can
-write PNGs (`smoke_links.js <dir>` does); crop those rather than staging shots
-by hand.
+1. `1-popup-site.png`: popup Site tab, "Your changes here" chips, blocking level, blocked count, per-site privacy switches.
+2. `2-tracker-highlighter.png`: tracker panel with blocked / not blocked hosts and a Block button.
+3. `3-link-select.png`: link select mid-drag, headlines only.
+4. `4-storage-viewer.png`: Cookies tab showing the localStorage viewer.
+5. `5-seo-viewer.png`: SEO & structured data viewer.
 
 ## Privacy practices tab
 
@@ -104,7 +126,7 @@ removed in v0.8.1).
 | `tabs` | Reads the current tab's URL to show that site's settings in the popup; opens selected links as background tabs (link select); saves and restores tab sessions; finds duplicate tabs. |
 | `windows` | Opens selected links or a restored session in a new window; resizes the window for the viewport presets. |
 | `scripting` | Injects the on-demand tools, Dark Reader, the reader / SEO extractors and the storage viewer into the current tab when the user asks for them. |
-| `contentSettings` | Implements the per-site "Allow JavaScript" switch using Chrome's own JavaScript content setting. |
+| `contentSettings` (optional) | Implements the per-site "Allow JavaScript" switch using Chrome's own JavaScript content setting. Requested the first time the user flips that switch. |
 | `declarativeNetRequest` | Blocks ad and tracker requests from bundled static rulesets and the user's own blocklist; applies the user's per-site request/response header rules, third-party cookie blocking and referrer policy. |
 | `declarativeNetRequestFeedback` | Reads which of the extension's own block rules matched on the current tab, to show the user a "blocked on this page" count and list. |
 | `webRequest` | Observes (never blocks or modifies) main-frame requests to show the redirect chain and response headers for the current tab, and notices media responses so the Media tab can list downloadable video/audio. Kept in session storage, per tab, and discarded when the tab closes. |
@@ -112,8 +134,8 @@ removed in v0.8.1).
 | `cookies` | The cookie editor (view, edit, delete cookies for the current site). Optionally, and off by default, passes the current video site's cookies to the user's local helper app for a download the user started. |
 | `browsingData` | "Clear all data for this site" and the per-site "forget this site when I close it" switch; always scoped to the one site the user chose. |
 | `userScripts` | Runs the user's own per-site JavaScript and snippets, which the user writes in the options page. Requires the user to enable "Allow User Scripts" for the extension. |
-| `nativeMessaging` | Talks to the optional ComboBreaker Helper, a local app the user installs separately, which runs yt-dlp for video sites that cannot be downloaded from inside the browser. Unused unless the user installs it. |
-| `notifications` | Tells the user when a helper download finished or failed. |
+| `nativeMessaging` (optional) | Requested from the Helper setup page, when the user chooses to set the Helper up. Talks to the optional ComboBreaker Helper, a local app the user installs separately, which runs yt-dlp for video sites that cannot be downloaded from inside the browser. Unused unless the user installs it. |
+| `notifications` (optional) | Requested when the user switches on "Notify me when a download finishes" in options. Tells the user when a helper download finished or failed. |
 | `clipboardWrite` (optional) | Copy actions (colour, Markdown, links, cURL) on pages where the async clipboard API is unavailable. |
 | Host permission `<all_urls>` | The extension's purpose is to act on whatever site the user is on: per-site CSS/JS and dark mode must be applied at page load on the sites the user configured, the JSON formatter and link select must be available on any page, and blocking / header rules apply to requests from any site. The set of sites cannot be known in advance. |
 
@@ -132,24 +154,26 @@ time and shipped in the package; nothing is fetched at runtime.
 - Not sold to third parties; not used for purposes unrelated to the single
   purpose; not used for creditworthiness or lending.
 
-**Privacy policy URL:** the store requires one when `<all_urls>` / cookies are
-requested. The README's Privacy section is the policy; link to
-`https://github.com/scootsmagoo/combobreaker#privacy`.
+**Privacy policy URL:** required when `<all_urls>` / cookies are requested:
+`https://github.com/scootsmagoo/combobreaker/blob/main/docs/PRIVACY.md`
 
 ## Known review risks
 
-- **Breadth of permissions.** Fifteen required permissions plus `<all_urls>`
-  guarantees an in-depth (slow) review. Moving `cookies`, `browsingData`,
-  `nativeMessaging` and `notifications` to `optional_permissions`, requested
-  the first time the feature is used, would shorten the install warning and
-  the review. Not done yet: it needs a request flow per feature, and the
-  auto-clear feature runs in the background where a permission prompt cannot
-  be shown.
-- **Video downloading.** The store forbids downloading YouTube video. The
-  in-browser paths never touch YouTube (it needs the separately installed
-  helper), but the badge does appear on YouTube pages. For a store build,
-  hide the badge on YouTube hosts unless the helper is installed, and keep
-  YouTube out of the listing text and screenshots.
+- **Breadth of permissions.** Twelve required permissions plus `<all_urls>`
+  guarantees an in-depth (slow) review. The three that add alarming lines to
+  the install dialog (`nativeMessaging`, `contentSettings`, `notifications`)
+  are optional and requested at first use. `cookies` and `browsingData` stay
+  required on purpose: they add no install warning, and "forget this site when
+  I close it" needs `browsingData` in the background, where Chrome cannot show
+  a permission prompt. If a reviewer pushes back, `downloads` is the next
+  candidate to make optional.
+- **Video downloading.** The store forbids offering YouTube downloads. Store
+  installs therefore show no download badge on YouTube by default
+  (`content/media_overlay.js`, `STORE_INSTALL`); a user can still switch badges
+  on for that site, and the separately installed Helper does the downloading,
+  not the extension. Keep YouTube out of the listing text and screenshots (it
+  is). If a reviewer still objects, remove the YouTube adapter from the store
+  upload entirely.
 - **`userScripts`.** Allowed, but reviewers check that the code it runs is
   user-authored. It is.
 - **Unpacked-extension ID.** The helper's native-messaging manifest lists the
