@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ComboBreaker",
   "short_name": "ComboBreaker",
-  "version": "0.8.2",
+  "version": "0.9.0",
   "description": "One privacy-respecting toolbox instead of a dozen small extensions: per-site JS/CSS, dark mode, dev tools, downloader. No telemetry.",
   "author": "scootsmagoo",
   "minimum_chrome_version": "120",
@@ -82,6 +82,16 @@
       "all_frames": false,
       "js": [
         "content/media_finder.js"
+      ]
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "run_at": "document_end",
+      "all_frames": false,
+      "js": [
+        "content/link_select.js"
       ]
     },
     {

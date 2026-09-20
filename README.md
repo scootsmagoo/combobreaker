@@ -50,6 +50,7 @@ Inspired by the spirit of [@levelsio's combo-extension thread](https://x.com/lev
 | **Video downloader** | A download badge on any video or thumbnail (YouTube, Twitter/X, plain `<video>`), a Media tab with progress, a built-in HLS downloader, and the optional **ComboBreaker Helper** (local yt-dlp) for YouTube and DASH. [Details ↓](#video-downloader) |
 | **Reader view** | Clean reader tab via Mozilla Readability, and **Copy as Markdown** for notes or LLM workflows. [Details ↓](#reader-view) |
 | **Full-page screenshot** | Scroll-and-stitch the entire page to a PNG download. |
+| **Link select** | Hold **Z** and drag a box over a group of links to open them all in background tabs, open them in a new window, or copy them. Smart select takes just the headlines. The Linkclump idea. [Details ↓](#link-select) |
 | **Browse tools** | Viewport / User-Agent presets, tab session save and restore, duplicate-tab finder, and skip-cache while the popup is open. [Details ↓](#browse-tools) |
 
 ### Housekeeping
@@ -110,6 +111,10 @@ Hover any video player or thumbnail and a small **download badge** appears on it
 
 **Browse** tab: extract the main article with [Mozilla Readability](https://github.com/mozilla/readability) and open a clean **reader** tab. Optional **Copy as Markdown** uses [Turndown](https://github.com/mixmark-io/turndown) for notes or LLM workflows. Vendored under `vendor/`.
 
+### Link select
+
+Hold the trigger and drag a box over links; let go and they all open in background tabs right after the current one, in page order. The trigger is **Z + drag** by default; Options → **Link select** offers Shift + drag, Alt + drag and right-button drag, and picks what happens on release (tabs, new window, or copy as URLs / title-tab-URL / a Markdown list). While dragging, **T**, **W** and **C** switch between tabs, window and copy for that one drag, **S** turns smart select on or off, **Esc** cancels, and holding the pointer at an edge scrolls the page so the box can cover more than a screen. **Smart select**: when the box holds both headline links (inside a heading, or bold) and ordinary ones, only the headlines are taken, so a news front page or search results give you the stories without their "comments" and "share" links. Duplicates, `javascript:` / `mailto:` links and links to a spot on the same page are dropped; more than 25 links asks first and 100 is the cap. With the right-button trigger on macOS and Linux the context menu needs a second right-click, because those systems open it on press rather than release.
+
 ### Browse tools
 
 **Viewport / User-Agent** presets (resize window + optional UA for this site via DNR), **tab session** save/restore, **find duplicate** URLs and close extras, and **skip cache** for the current tab’s requests while the popup is open (see service worker for details).
@@ -156,7 +161,7 @@ npm install
 npm run check    # manifest references, DNR rule ids, import paths, UTF-8/no-BOM
 npm run lint     # ESLint
 npm test         # node:test unit tests (storage, backup, site helpers, DNR rule builders, tech signatures,
-                 # blocklist, cURL, HLS playlist parser, media classifier)
+                 # blocklist, cURL, HLS playlist parser, media classifier, link select)
 npm run pack     # dist/combobreaker-<version>.zip with only runtime files
 ```
 
@@ -165,6 +170,7 @@ Browser smoke tests (need `npm i --no-save puppeteer-core` and a local Chrome):
 ```
 node scripts/smoke_site.js      # per-site CSS/JS, userScripts + fallback, snippets, site-data nuke, backup
 node scripts/smoke_overlay.js   # download badge on a local page and on YouTube
+node scripts/smoke_links.js     # link select with real mouse + keyboard: smart select, T/W/C/S/Esc, right-button trigger, auto-scroll
 node scripts/smoke_hls.js       # built-in HLS downloader: TS playlist, fMP4 byte ranges (server honours / ignores Range)
 node scripts/smoke_dark.js      # dark mode Auto: bright / dark / late CSS / late-rendering app / cached verdicts / overrides
 node scripts/smoke_privacy.js   # redirect chain, blocked counter, personal blocklist, third-party cookie strip, referrer override, auto-clear on close
@@ -181,6 +187,7 @@ Source files are UTF-8 without BOM, LF line endings (`.editorconfig`, `.gitattri
 | `Alt+C` | Open popup |
 | `Alt+Shift+D` | Toggle dark mode for current site |
 | `Alt+Shift+C` | Pick a color from the page |
+| `Z` + drag | Link select (not a Chrome shortcut: change it in Options → Link select) |
 | *(unset)* | Toggle JavaScript for the current site |
 | *(unset)* | Nuke all site data for the current site, then reload. Destructive and asks nothing, so it has no key until you give it one. |
 
@@ -211,6 +218,7 @@ viewer/helper_setup.*         Setup page: OS-specific step, polls until the Help
 lib/helper.js                 Helper constants (source URL, install one-liner, folders)
 content/schema_inject.js      Injected to collect meta / SEO tags, JSON-LD, microdata and RDFa for the viewer
 content/reader_inject.js      Injected with Readability + Turndown for reader / Copy as Markdown
+content/link_select.js        Link select: trigger, selection box, smart select, auto-scroll (top frame of every page)
 content/dr_amd_guard_*.js     Wrapped around the Dark Reader injection (hide define.amd for that instant)
 tools/                        On-demand: color picker, ruler, whatfont, tracker highlighter
 viewer/                       hls_downloader, reader, structured_data
@@ -225,6 +233,7 @@ lib/site_rules.js             Pure builders for per-site DNR rules (header overr
 lib/tech.js                   Tech stack signatures + matcher
 lib/trackers.js               Host → blocklist lookup for the tracker highlighter, personal blocklist validation
 lib/curl.js                   "Copy cURL" command builder
+lib/links.js                  Link select: settings, link cleaning / de-duplication, copy formats
 lib/hls.js                    .m3u8 parser (master / media, byte ranges, encryption, init segments)
 lib/media.js                  Media classification by URL / MIME, stream-segment filter, download file names
 test/                         node:test unit tests (fake chrome.storage)

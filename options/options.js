@@ -55,6 +55,7 @@ async function init() {
   });
 
   bindDarkTuneInputs();
+  bindLinkSelect(g);
   bindCustomBlock();
   bindDownloads(g);
   bindBackup();
@@ -273,6 +274,20 @@ async function saveActive() {
     .catch(() => {});
   chrome.runtime.sendMessage({ type: "apply-adblock" }).catch(() => {});
   chrome.runtime.sendMessage({ type: "apply-auto-clear" }).catch(() => {});
+}
+
+// Link select settings (content/link_select.js picks changes up live).
+function bindLinkSelect(g) {
+  const fields = { "ls-enabled": "enabled", "ls-trigger": "trigger", "ls-action": "action", "ls-copy-format": "copyFormat", "ls-smart": "smart" };
+  for (const [id, key] of Object.entries(fields)) {
+    const el = $(id);
+    if (el.type === "checkbox") el.checked = !!g.linkSelect[key];
+    else el.value = g.linkSelect[key];
+    el.addEventListener("change", async () => {
+      await setGlobal({ linkSelect: { [key]: el.type === "checkbox" ? el.checked : el.value } });
+      toast("Link select updated", "ok");
+    });
+  }
 }
 
 // "Your blocklist": the service worker owns validation (lib/trackers.js), so

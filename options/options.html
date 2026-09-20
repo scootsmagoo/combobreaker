@@ -37,6 +37,48 @@
           </label>
         </section>
 
+        <section class="side-section" id="link-select">
+          <h2>Link select</h2>
+          <p class="hint">
+            Drag a box over a group of links to open or copy them all at once. While dragging:
+            <strong>T</strong> tabs, <strong>W</strong> new window, <strong>C</strong> copy,
+            <strong>S</strong> smart select on/off, <strong>Esc</strong> cancel.
+          </p>
+          <label class="row">
+            <span>Enabled</span>
+            <input type="checkbox" id="ls-enabled" />
+          </label>
+          <label class="row">
+            <span title="What starts a selection. With a key, hold it and drag with the left mouse button. With the right mouse button on macOS and Linux, the context menu needs a second right-click, because those systems open it on press rather than release.">Start a selection with</span>
+            <select id="ls-trigger">
+              <option value="z">Z + drag</option>
+              <option value="shift">Shift + drag</option>
+              <option value="alt">Alt + drag</option>
+              <option value="right">Right mouse button drag</option>
+            </select>
+          </label>
+          <label class="row">
+            <span title="What happens when you let go. T, W and C change it for a single drag.">On release</span>
+            <select id="ls-action">
+              <option value="tabs">Open in background tabs</option>
+              <option value="window">Open in a new window</option>
+              <option value="copy">Copy to clipboard</option>
+            </select>
+          </label>
+          <label class="row">
+            <span>Copy as</span>
+            <select id="ls-copy-format">
+              <option value="urls">URLs, one per line</option>
+              <option value="titles">Title, tab, URL (pastes into a spreadsheet)</option>
+              <option value="markdown">Markdown list</option>
+            </select>
+          </label>
+          <label class="row">
+            <span title="When the box holds both headline links (in a heading, or bold) and ordinary ones, only the headlines are taken: story titles without their comment and share links.">Smart select (headlines only)</span>
+            <input type="checkbox" id="ls-smart" />
+          </label>
+        </section>
+
         <section class="side-section" id="blocklist">
           <h2>Your blocklist</h2>
           <p class="hint">

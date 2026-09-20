@@ -1,8 +1,9 @@
 // Browse tab: reader view, structured data, viewport presets, tab sessions, duplicates, no-cache.
 
 import { HEADER_RESOURCE_TYPES } from "../lib/site_rules.js";
-import { getSite, setSite } from "../lib/storage.js";
+import { getGlobal, getSite, setSite } from "../lib/storage.js";
 import { applySiteHeaderRules } from "./header_rules.js";
+import { cleanLinks, formatLinks, LINKS_MAX_OPEN } from "../lib/links.js";
 
 // ---------- Tier 3: browsing (reader, viewport, sessions, no-cache) ----------
 
@@ -317,4 +318,35 @@ export async function closeDuplicateTabGroups() {
     }
   }
   return { ok: true, closed, groupCount: groups.length };
+}
+
+// ---------- Link select (content/link_select.js) ----------
+//
+// The page sends the links inside the dragged box; they are cleaned here
+// (lib/links.js) and either opened or handed back as text to copy. Tabs open
+// in the background, in page order, right after the tab they came from.
+
+export async function linksAction(msg, sender) {
+  const tab = sender && sender.tab;
+  const links = cleanLinks(msg.links, tab && tab.url).slice(0, LINKS_MAX_OPEN);
+  if (!links.length) return { count: 0 };
+  if (msg.action === "copy") {
+    const { linkSelect } = await getGlobal();
+    return { count: links.length, text: formatLinks(links, linkSelect.copyFormat) };
+  }
+  if (msg.action === "window") {
+    await chrome.windows.create({ url: links.map((l) => l.url), focused: true, incognito: !!(tab && tab.incognito) });
+    return { count: links.length };
+  }
+  let index = tab ? tab.index + 1 : undefined;
+  for (const l of links) {
+    await chrome.tabs.create({
+      url: l.url,
+      active: false,
+      windowId: tab ? tab.windowId : undefined,
+      openerTabId: tab ? tab.id : undefined,
+      index: index != null ? index++ : undefined,
+    });
+  }
+  return { count: links.length };
 }

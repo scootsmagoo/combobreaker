@@ -14,6 +14,7 @@ import {
   extractReaderForTab,
   extractStructuredDataForTab,
   findDuplicateTabGroups,
+  linksAction,
   listTabSessions,
   openReaderView,
   openStructuredDataView,
@@ -205,6 +206,8 @@ async function handleMessage(msg, sender) {
       return await deleteTabSession(msg.sessionId);
     case "restore-tab-session":
       return await restoreTabSession(msg.sessionId);
+    case "links-action":
+      return await linksAction(msg, sender);
     case "find-duplicate-tabs":
       return findDuplicateTabGroups();
     case "close-duplicate-tabs":
