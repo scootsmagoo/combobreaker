@@ -29,7 +29,6 @@ Inspired by the spirit of [@levelsio's combo-extension thread](https://x.com/lev
 | **Cookies, storage, headers, redirects** | **Cookies** tab: list, edit, or delete cookies for the current site, switch to **Local storage** / **Session storage** to view (JSON pretty-printed), copy, edit, add, delete or **Export** keys as JSON and see the page's IndexedDB / Cache Storage names, plus **Nuke all site data** (cookies, localStorage, IndexedDB, Cache Storage, service workers — DevTools' “Clear site data” in one click). **Headers** tab: recent response header captures, **Copy cURL** (repeats the request from a terminal with your request-header overrides, never cookies), plus quick link to your request/response **header overrides** in options. **Redirects** tab: redirect chain for the current tab, copy, clear. |
 | **Browse tools** | **Viewport / User-Agent** presets (resize window + optional UA for this site via DNR), **tab session** save/restore, **find duplicate** URLs and close extras, and **skip cache** for the current tab’s requests while the popup is open (see service worker for details). |
 | **Utility belt** | Tucked into the **Tools** tab — JWT decoder, encoder/decoder (Base64 / Base64-URL / URL / hex / HTML entity), regex tester with live highlights, Unix-timestamp ↔ ISO-date converter, color converter (hex / rgb / hsl / oklch) with WCAG contrast checker, line/word diff viewer, fake data + lorem-ipsum generator, password / UUID generator, and a locally rendered QR code for the current URL. Each tool is a `<details>` collapsible — open only what you need. Client-side only; no network. |
-| **Kagi search** | Sets Kagi as your default search provider on install. Chrome only lets a manifest declare this, so it can't be toggled at runtime — decline Chrome's prompt, or delete `chrome_settings_overrides` from `manifest.json`, if you don't want it. |
 | **Backup** | Options → **Backup**: export / import every setting (global, per-site CSS/JS/headers and privacy switches, snippets, tab sessions, your blocklist) as one JSON file. |
 | **Ad & tracker blocking** | Three levels, set from the popup's Site tab: **Off**, **Basic** (a hand-picked `declarativeNetRequest` list of ~40 of the biggest ad, analytics and social-pixel companies; very unlikely to break anything) and **Strong** (Basic plus [Peter Lowe's list](https://pgl.yoyo.org/adservers/) of ~3,500 ad and tracking servers, third-party requests only). **Pause on this site** switches blocking off for one site, e.g. when something breaks or you need its analytics / tag manager to load. The toolbar icon shows how many requests were blocked on the current page (switch it off in options) and the Site tab names the companies. It blocks network requests only: no cosmetic filtering, no YouTube ads. Run uBlock Origin Lite alongside if you want those. The Strong list is regenerated weekly by `.github/workflows/blocklist.yml`, which opens a PR (or run `node scripts/update_blocklist.js` yourself); the extension never fetches it at runtime. |
 | **Per-site privacy** | Site tab, three switches for the site you are on. **Forget this site when I close it**: when its last tab closes, the same wipe as *Nuke all site data* runs (also swept at browser start, since quitting can outrun the cleanup). **Block third-party cookies here**: requests the site's pages make to other companies go out without cookies and cannot set any (DNR header rules; link navigations are untouched, requests from inside third-party iframes are not covered). **Referrer sent by this site**: origin only / nothing to other sites / never, as a `Referrer-Policy` response header plus a `Referer` strip for the strict options. |
@@ -47,8 +46,6 @@ Until ComboBreaker is published to the Chrome Web Store, side-load it as an unpa
 4. Click **Load unpacked** (top left) and select the repo folder — the one containing `manifest.json`, not a parent or subfolder.
 5. The extension appears in your list as "ComboBreaker." If the manifest has an error, Chrome shows it in red — click **Errors** for details.
 6. Pin it: click the puzzle-piece icon in the Chrome toolbar, find ComboBreaker, click the pin icon next to it.
-
-On first install Chrome will prompt to confirm the search-provider override (Kagi). Decline if you don’t want that.
 
 ### Dev loop
 
@@ -112,7 +109,7 @@ You can rebind these in `chrome://extensions/shortcuts`.
 ## Architecture
 
 ```
-manifest.json                 MV3 manifest, permissions, DNR, settings overrides
+manifest.json                 MV3 manifest, permissions, DNR rulesets, commands
 background/service_worker.js  Boot, message router, per-site JS toggle, keyboard commands
 background/*.js               One module per area: dark_mode, page_tools (tool launcher, screenshot,
                               encoding), blocking, site_data (nuke, auto-clear), net_capture (redirects,

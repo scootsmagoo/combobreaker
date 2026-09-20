@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ComboBreaker",
   "short_name": "ComboBreaker",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "One privacy-respecting toolbox instead of a dozen small extensions: per-site JS/CSS, dark mode, dev tools, downloader. No telemetry.",
   "author": "scootsmagoo",
   "minimum_chrome_version": "120",
@@ -145,16 +145,6 @@
         "path": "rules/strong_block.json"
       }
     ]
-  },
-  "chrome_settings_overrides": {
-    "search_provider": {
-      "name": "Kagi",
-      "keyword": "kagi",
-      "search_url": "https://kagi.com/search?q={searchTerms}",
-      "favicon_url": "https://kagi.com/favicon.ico",
-      "encoding": "UTF-8",
-      "is_default": true
-    }
   },
   "commands": {
     "_execute_action": {
