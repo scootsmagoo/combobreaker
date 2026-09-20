@@ -50,7 +50,7 @@
             <span>Enabled</span>
             <input type="checkbox" id="ls-enabled" />
           </label>
-          <label class="row">
+          <label class="row stack">
             <span title="What starts a selection. With a key, hold it and drag with the left mouse button. With the right mouse button on macOS and Linux, the context menu needs a second right-click, because those systems open it on press rather than release.">Start a selection with</span>
             <select id="ls-trigger">
               <option value="z">Z + drag</option>
@@ -59,7 +59,7 @@
               <option value="right">Right mouse button drag</option>
             </select>
           </label>
-          <label class="row">
+          <label class="row stack">
             <span title="What happens when you let go. T, W and C change it for a single drag.">On release</span>
             <select id="ls-action">
               <option value="tabs">Open in background tabs</option>
@@ -67,7 +67,7 @@
               <option value="copy">Copy to clipboard</option>
             </select>
           </label>
-          <label class="row">
+          <label class="row stack">
             <span>Copy as</span>
             <select id="ls-copy-format">
               <option value="urls">URLs, one per line</option>
@@ -172,7 +172,7 @@
           <div class="bridge-status" id="bridge-status">
             <span class="bridge-dot" id="bridge-dot"></span>
             <span id="bridge-text">Checking…</span>
-            <button type="button" id="bridge-recheck" class="ghost-btn" title="Re-check">↻</button>
+            <button type="button" id="bridge-recheck" class="ghost-btn icon" title="Re-check">↻</button>
           </div>
           <p class="hint">
             YouTube, DASH and split-audio HLS downloads run through the free
@@ -271,7 +271,7 @@
         <section class="side-section">
           <div class="side-header">
             <h2>Sites</h2>
-            <button id="add-site" class="ghost-btn" title="Add site">+</button>
+            <button id="add-site" class="ghost-btn icon" title="Add site">+</button>
           </div>
           <ul id="site-list" class="site-list"></ul>
         </section>
