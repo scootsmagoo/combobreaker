@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ComboBreaker",
   "short_name": "ComboBreaker",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "One privacy-respecting toolbox instead of a dozen small extensions: per-site JS/CSS, dark mode, dev tools, downloader. No telemetry.",
   "author": "scootsmagoo",
   "minimum_chrome_version": "120",
@@ -117,28 +117,6 @@
       "match_about_blank": false,
       "js": [
         "content/media_overlay.js"
-      ]
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "tools/color_picker.js",
-        "tools/ruler.js",
-        "tools/whatfont.js",
-        "vendor/darkreader.js",
-        "viewer/hls_downloader.html",
-        "viewer/hls_downloader.css",
-        "viewer/hls_downloader.js",
-        "viewer/reader.html",
-        "viewer/reader.css",
-        "viewer/reader.js",
-        "viewer/structured_data.html",
-        "viewer/structured_data.css",
-        "viewer/structured_data.js"
-      ],
-      "matches": [
-        "<all_urls>"
       ]
     }
   ],

@@ -347,12 +347,15 @@ ComboBreaker:
 - Makes **zero** tracking or analytics network requests of its own.
 - Stores your settings in `chrome.storage.sync` (or session/local where explicitly stated); there is no ComboBreaker server.
 - Asks for `<all_urls>` so per-site CSS/JS and tools can work on the pages you choose.
+- Declares **no web-accessible resources**: a website cannot load any of the extension's files, so it cannot use them to detect that ComboBreaker is installed.
 - `nativeMessaging` is only used for the ComboBreaker Helper, which you install yourself and which only ever runs its local `yt-dlp`.
 - `cookies` is used for the Cookies tab and the optional "Use my browser's cookies" download setting (off by default).
 - `browsingData` is used for **Nuke all site data** and **Forget this site when I close it**, and only ever for the one site you chose.
 - `scripting` runs the on-demand tools, the storage viewer and the tech / SEO probes in the current tab; what they read stays in the popup or viewer page.
 - `notifications` is used for finished or failed Helper downloads and the optional nuke shortcut.
 - `declarativeNetRequestFeedback` only lets the popup read which of its own block rules fired on the current tab, for the blocked count.
+
+Publishing to the Chrome Web Store: the listing text, single-purpose statement and a justification for every permission are in [`docs/STORE_LISTING.md`](docs/STORE_LISTING.md), along with the known review risks.
 
 ## Contributing
 
