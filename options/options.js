@@ -55,6 +55,7 @@ async function init() {
   });
 
   bindDarkTuneInputs();
+  bindCustomBlock();
   bindDownloads(g);
   bindBackup();
   refreshUserScriptsStatus();
@@ -272,6 +273,33 @@ async function saveActive() {
     .catch(() => {});
   chrome.runtime.sendMessage({ type: "apply-adblock" }).catch(() => {});
   chrome.runtime.sendMessage({ type: "apply-auto-clear" }).catch(() => {});
+}
+
+// "Your blocklist": the service worker owns validation (lib/trackers.js), so
+// whatever it sends back is what was actually saved.
+async function bindCustomBlock() {
+  const area = $("custom-block");
+  const show = (hosts) => {
+    area.value = hosts.join("\n");
+    $("custom-block-count").textContent = `${hosts.length} host${hosts.length === 1 ? "" : "s"}`;
+  };
+  const load = async () => {
+    const resp = await chrome.runtime.sendMessage({ type: "custom-block-get" });
+    if (resp && resp.ok) show(resp.result.hosts);
+  };
+  $("custom-block-save").addEventListener("click", async () => {
+    const typed = area.value.split(/\s+/).filter(Boolean).length;
+    const resp = await chrome.runtime.sendMessage({ type: "custom-block-set", hosts: area.value });
+    if (!resp || !resp.ok) return toast((resp && resp.error) || "Could not save the blocklist", "err");
+    show(resp.result.hosts);
+    const dropped = typed - resp.result.hosts.length;
+    toast(dropped > 0 ? `Saved ${resp.result.hosts.length}; ${dropped} invalid, duplicate or already covered` : "Blocklist saved", "ok");
+  });
+  // The highlighter's Block button may add hosts while this page is open.
+  chrome.storage.onChanged.addListener((changes, area2) => {
+    if (area2 === "local" && changes.cb_custom_block && document.activeElement !== area) load();
+  });
+  await load();
 }
 
 async function broadcastSiteChange(siteKey, settings) {

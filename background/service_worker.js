@@ -1,6 +1,13 @@
 import { originPatternForSite, siteKeyFromUrl } from "../lib/site.js";
 import { ensureSchema, getGlobal, getSite, setGlobal, setSite } from "../lib/storage.js";
-import { adblockMatched, applyAdblockState, classifyTrackers } from "./blocking.js";
+import {
+  adblockMatched,
+  applyAdblockState,
+  classifyTrackers,
+  getCustomBlock,
+  setCustomBlock,
+  addCustomBlock,
+} from "./blocking.js";
 import {
   closeDuplicateTabGroups,
   deleteTabSession,
@@ -104,6 +111,12 @@ async function handleMessage(msg, sender) {
       return await applyAdblockState();
     case "classify-trackers":
       return await classifyTrackers(msg.hosts, sender?.tab?.url);
+    case "custom-block-get":
+      return { hosts: await getCustomBlock() };
+    case "custom-block-set":
+      return await setCustomBlock(msg.hosts);
+    case "custom-block-add":
+      return await addCustomBlock(msg.host, sender?.tab?.url);
     case "adblock-matched":
       return await adblockMatched(msg.tabId);
     case "get-redirect-chain":

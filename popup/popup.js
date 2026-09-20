@@ -171,6 +171,7 @@ async function loadBlockedSummary() {
   b.textContent = String(m.total);
   el.append(b, ` request${m.total === 1 ? "" : "s"} blocked on this page`);
   const parts = m.basic.slice(0, 4).map((x) => (x.count > 1 ? `${x.name} ×${x.count}` : x.name));
+  if (m.custom) parts.push(m.custom > 1 ? `your list ×${m.custom}` : "your list");
   const rest = m.basic.slice(4).reduce((n, x) => n + x.count, 0) + m.strong;
   if (parts.length && rest) parts.push(`${rest} more`);
   if (parts.length) el.append(`: ${parts.join(", ")}`);

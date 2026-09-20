@@ -1,7 +1,8 @@
 // Tracker highlighter — a visual privacy audit of the current page. Outlines
 // tracking pixels, hidden iframes and anything that comes from a host on the
 // Basic / Strong blocklists, and lists every such host in a panel (scripts and
-// beacons have nothing to outline). Read-only: it blocks nothing itself.
+// beacons have nothing to outline). A host that is getting through can be added
+// to your own blocklist from its row; otherwise the tool changes nothing.
 // Run it again, press Esc or click ✕ to remove it.
 
 (() => {
@@ -102,7 +103,11 @@
       .sw { width: 8px; height: 8px; border-radius: 50%; align-self: center; }
       .host { font-family: ui-monospace, monospace; word-break: break-all; }
       .kinds { color: #8b93a9; font-size: 11px; }
-      .state { font-size: 11px; white-space: nowrap; }
+      .state { font-size: 11px; white-space: nowrap; text-align: right; }
+      .block { display: block; margin: 3px 0 0 auto; background: none; border: 1px solid #3a4262; color: #e7eaf3; border-radius: 4px;
+        font: inherit; font-size: 11px; padding: 1px 8px; cursor: pointer; }
+      .block:hover { border-color: #f87171; color: #f87171; }
+      .block:disabled { opacity: .6; cursor: default; border-color: #3a4262; color: #8b93a9; }
       .empty { padding: 18px 12px; color: #8b93a9; text-align: center; }
       .legend { display: flex; gap: 12px; padding: 7px 12px; color: #8b93a9; font-size: 11px; }
       .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
@@ -184,12 +189,38 @@
       host.textContent = g.host;
       const kinds = document.createElement("div");
       kinds.className = "kinds";
-      kinds.textContent = `${[...g.kinds].join(", ")}${g.count > 1 ? ` ×${g.count}` : ""}${g.list ? ` · ${g.list === "basic" ? "Basic" : "Strong"} list` : " · not on a list"}`;
+      kinds.textContent = `${[...g.kinds].join(", ")}${g.count > 1 ? ` ×${g.count}` : ""}${g.list ? ` · ${g.list === "custom" ? "your list" : g.list === "basic" ? "Basic list" : "Strong list"}` : " · not on a list"}`;
       mid.append(host, kinds);
       const state = document.createElement("div");
       state.className = "state";
       state.style.color = colorOf(g);
-      state.textContent = g.blocked ? "blocked" : g.list ? "not blocked" : "hidden pixel";
+      const stateText = document.createElement("div");
+      stateText.textContent = g.blocked ? "blocked" : g.list ? "not blocked" : "hidden pixel";
+      state.appendChild(stateText);
+      // The blocklist takes host names only, so an IP address gets no button.
+      const blockable = /[a-z]/i.test(g.host) && g.host.includes(".");
+      if (blockable && !g.blocked && !(settings && (settings.paused || settings.level === "off"))) {
+        const block = document.createElement("button");
+        block.className = "block";
+        block.textContent = "Block";
+        block.title = `Add ${g.host} to your blocklist (Options → Your blocklist to undo)`;
+        block.addEventListener("click", (e) => {
+          e.stopPropagation();
+          block.disabled = true;
+          chrome.runtime.sendMessage({ type: "custom-block-add", host: g.host }, (resp) => {
+            if (resp && resp.ok) {
+              block.textContent = "Added";
+              stateText.textContent = "blocked from next load";
+              state.style.color = COLORS.blocked;
+              sw.style.background = COLORS.blocked;
+            } else {
+              block.textContent = "Can't block";
+              block.title = (resp && resp.error) || "failed";
+            }
+          });
+        });
+        state.appendChild(block);
+      }
       row.append(sw, mid, state);
       const target = g.els.find((el) => boxes.has(el));
       if (target) {

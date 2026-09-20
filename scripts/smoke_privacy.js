@@ -52,6 +52,10 @@ function serve(req, res) {
     res.writeHead(200, { "content-type": "text/html", "referrer-policy": "unsafe-url", "set-cookie": "first=1; Path=/" });
     return res.end(`<!doctype html><title>privacy smoke</title><img src="${THIRD}/pixel?n=${n}"><script>localStorage.setItem("k","v")</script>`);
   }
+  if (url.pathname === "/custom") {
+    res.writeHead(200, { "content-type": "text/html" });
+    return res.end(`<!doctype html><title>custom</title><img src="http://tracker.test:${PORT}/pixel?n=c${url.searchParams.get("n")}">`);
+  }
   if (url.pathname === "/ads") {
     res.writeHead(200, { "content-type": "text/html" });
     return res.end(
@@ -81,7 +85,8 @@ async function main() {
     userDataDir: fs.mkdtempSync(path.join(os.tmpdir(), "cb-smoke-privacy-")),
     pipe: true,
     enableExtensions: [EXT],
-    args: ["--no-first-run", "--no-default-browser-check", "--window-size=1000,700"],
+    // tracker.test: a named third party for the personal blocklist (it takes host names, not IPs).
+    args: ["--no-first-run", "--no-default-browser-check", "--window-size=1000,700", "--host-resolver-rules=MAP tracker.test 127.0.0.1"],
   });
 
   const results = {};
@@ -144,6 +149,40 @@ async function main() {
       counted
     );
     await ads.close();
+
+    // Personal blocklist: junk is dropped, the host is blocked, Off lifts it.
+    const load = async (n) => {
+      const p = await browser.newPage();
+      await p.goto(`${SITE}/custom?n=${n}`, { waitUntil: "networkidle0" });
+      await sleep(300);
+      const tabId = await opts.evaluate(async (url) => (await chrome.tabs.query({ url }))[0].id, `${SITE}/custom*`);
+      const matched = (await opts.evaluate((id) => chrome.runtime.sendMessage({ type: "adblock-matched", tabId: id }), tabId)).result;
+      await p.close();
+      return { reached: !!pixels[`c${n}`], custom: matched && matched.custom };
+    };
+    const before = await load(1);
+    const saved = await opts.evaluate(() => chrome.runtime.sendMessage({ type: "custom-block-set", hosts: "https://Tracker.test/x\nnot a host\n10.0.0.1\nsub.tracker.test" }));
+    const during = await load(2);
+    await opts.evaluate(() => chrome.runtime.sendMessage({ type: "set-global", patch: { adblockLevel: "off" } }));
+    await opts.evaluate(() => chrome.runtime.sendMessage({ type: "apply-adblock" }));
+    const whenOff = await load(3);
+    await opts.evaluate(() => chrome.runtime.sendMessage({ type: "set-global", patch: { adblockLevel: "basic" } }));
+    await opts.evaluate(() => chrome.runtime.sendMessage({ type: "apply-adblock" }));
+    const own = await opts.evaluate(() => chrome.runtime.sendMessage({ type: "custom-block-add", host: "cdn.other.test" }));
+    await opts.evaluate(() => chrome.runtime.sendMessage({ type: "custom-block-set", hosts: [] }));
+    const cleared = await load(4);
+    expect(
+      "customBlocklist",
+      before.reached &&
+        JSON.stringify(saved.result.hosts) === '["tracker.test"]' &&
+        !during.reached &&
+        during.custom === 1 &&
+        whenOff.reached &&
+        own.ok &&
+        own.result.hosts.includes("cdn.other.test") &&
+        cleared.reached,
+      { before, saved: saved.result, during, whenOff, own: own.result, cleared }
+    );
 
     // Give the third party a cookie of its own.
     const tp = await browser.newPage();

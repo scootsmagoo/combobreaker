@@ -3,7 +3,15 @@
 import { siteKeyFromUrl } from "../lib/site.js";
 import { ruleLabel } from "../lib/site_rules.js";
 import { getGlobal, getSite, listSites } from "../lib/storage.js";
-import { buildTrackerIndex, classifyHost, isThirdParty, wouldBlock } from "../lib/trackers.js";
+import {
+  buildTrackerIndex,
+  classifyHost,
+  isThirdParty,
+  wouldBlock,
+  normalizeBlockHost,
+  normalizeBlockList,
+  buildCustomBlockRule,
+} from "../lib/trackers.js";
 
 // ---------- Adblock toggle ----------
 
@@ -17,6 +25,9 @@ import { buildTrackerIndex, classifyHost, isThirdParty, wouldBlock } from "../li
 const ADBLOCK_RULESETS = { basic: "combobreaker_basic_block", strong: "combobreaker_strong_block" };
 const ADBLOCK_PAUSE_RULE_ID = 900001;
 const ADBLOCK_PAUSE_PRIORITY = 2;
+const CUSTOM_BLOCK_RULE_ID = 900002;
+// storage.local (and Backup): string[] of hosts, see "Personal blocklist" below.
+const CUSTOM_BLOCK_KEY = "cb_custom_block";
 
 export async function applyAdblockState() {
   const { adblockLevel, adblockBadge } = await getGlobal();
@@ -33,6 +44,7 @@ export async function applyAdblockState() {
     displayActionCountAsBadgeText: adblockBadge && adblockLevel !== "off",
   });
   chrome.action.setBadgeBackgroundColor({ color: "#475569" }).catch(() => {});
+  await applyCustomBlockRule(adblockLevel);
   const paused = await applyAdblockPauses();
   return { adblockLevel, adblockEnabled: adblockLevel !== "off", paused };
 }
@@ -76,15 +88,55 @@ export async function adblockMatched(tabId) {
   const names = await loadBasicRuleNames();
   const byName = new Map();
   let strong = 0;
+  let custom = 0;
   for (const { rule } of rulesMatchedInfo) {
     if (rule.rulesetId === ADBLOCK_RULESETS.strong) strong++;
+    else if (rule.rulesetId === "_dynamic" && rule.ruleId === CUSTOM_BLOCK_RULE_ID) custom++;
     else if (rule.rulesetId === ADBLOCK_RULESETS.basic) {
       const name = names.get(rule.ruleId) || `rule ${rule.ruleId}`;
       byName.set(name, (byName.get(name) || 0) + 1);
     }
   }
   const basic = [...byName].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
-  return { total: strong + basic.reduce((n, b) => n + b.count, 0), basic, strong };
+  return { total: strong + custom + basic.reduce((n, b) => n + b.count, 0), basic, strong, custom };
+}
+
+// ---------- Personal blocklist ----------
+//
+// Hosts the user added (tracker highlighter's "Block" button, or the list in
+// options). One dynamic block rule, third-party only like Strong, active at
+// every level except Off and lifted by per-site pause like the static lists.
+
+export async function getCustomBlock() {
+  const data = await chrome.storage.local.get(CUSTOM_BLOCK_KEY);
+  return normalizeBlockList(data[CUSTOM_BLOCK_KEY] || []);
+}
+
+async function applyCustomBlockRule(level) {
+  trackerIndex = null; // the list may have changed underneath (backup import)
+  const rule = level === "off" ? null : buildCustomBlockRule(CUSTOM_BLOCK_RULE_ID, await getCustomBlock());
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: [CUSTOM_BLOCK_RULE_ID],
+    addRules: rule ? [rule] : [],
+  });
+}
+
+export async function setCustomBlock(input) {
+  const hosts = normalizeBlockList(input);
+  await chrome.storage.local.set({ [CUSTOM_BLOCK_KEY]: hosts });
+  trackerIndex = null;
+  await applyCustomBlockRule((await getGlobal()).adblockLevel);
+  return { hosts };
+}
+
+// From a page (the highlighter): never the page's own site, that is what
+// "Pause" and the JS toggle are for, and third-party-only would ignore it anyway.
+export async function addCustomBlock(host, pageUrl) {
+  const h = normalizeBlockHost(host);
+  if (!h) throw new Error("not a valid host name");
+  const siteKey = siteKeyFromUrl(pageUrl);
+  if (siteKey && siteKey !== "file://" && !isThirdParty(h, siteKey)) throw new Error("that is this site itself");
+  return await setCustomBlock([...(await getCustomBlock()), h]);
 }
 
 // For tools/trackers.js: which of the hosts a page talks to are on the Basic
@@ -95,7 +147,11 @@ let trackerIndex = null;
 async function loadTrackerIndex() {
   if (trackerIndex) return trackerIndex;
   const load = async (file) => (await fetch(chrome.runtime.getURL(file))).json();
-  trackerIndex = buildTrackerIndex(await load("rules/basic_block.json"), await load("rules/strong_block.json"));
+  trackerIndex = buildTrackerIndex(
+    await load("rules/basic_block.json"),
+    await load("rules/strong_block.json"),
+    await getCustomBlock()
+  );
   return trackerIndex;
 }
 

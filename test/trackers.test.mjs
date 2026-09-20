@@ -1,7 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { buildTrackerIndex, classifyHost, isThirdParty, wouldBlock } from "../lib/trackers.js";
+import {
+  buildTrackerIndex,
+  classifyHost,
+  isThirdParty,
+  wouldBlock,
+  normalizeBlockHost,
+  normalizeBlockList,
+  buildCustomBlockRule,
+} from "../lib/trackers.js";
 
 const basic = [{ id: 1, condition: { urlFilter: "||doubleclick.net^" } }, { id: 2, condition: { urlFilter: "/ads.js" } }];
 const strong = [{ id: 1000, condition: { requestDomains: ["adnxs.com", "doubleclick.net", "t.example.org"] } }];
@@ -46,4 +54,39 @@ test("the shipped rulesets index cleanly", () => {
   const real = buildTrackerIndex(load("basic_block.json"), load("strong_block.json"));
   assert.ok(real.size > 3000);
   assert.equal(classifyHost("www.google-analytics.com", real).list, "basic");
+});
+
+test("normalizeBlockHost accepts pasted hosts and URLs, rejects junk", () => {
+  assert.equal(normalizeBlockHost("  Bat.Bing.com. "), "bat.bing.com");
+  assert.equal(normalizeBlockHost("https://ads.example.co.uk:8443/x?y#z"), "ads.example.co.uk");
+  assert.equal(normalizeBlockHost("*.tracker.io"), "tracker.io");
+  assert.equal(normalizeBlockHost("xn--80ak6aa92e.com"), "xn--80ak6aa92e.com");
+  for (const bad of ["", "# comment", "localhost", "exa mple.com", "user@example.com", "-bad.com", "a..b.com", "пример.рф", "http://", "example.c"]) {
+    assert.equal(normalizeBlockHost(bad), null, bad);
+  }
+});
+
+test("normalizeBlockList de-duplicates, sorts and drops covered subdomains", () => {
+  assert.deepEqual(normalizeBlockList("b.example.com\nexample.com, zed.net\n\nnot a host\nZED.net\nhttps://a.other.org/p"), [
+    "a.other.org",
+    "example.com",
+    "zed.net",
+  ]);
+  assert.deepEqual(normalizeBlockList(["x.io", 5, null, "x.io"]), ["x.io"]);
+  assert.deepEqual(normalizeBlockList(""), []);
+});
+
+test("custom list: rule shape, index priority, third-party only", () => {
+  assert.equal(buildCustomBlockRule(7, []), null);
+  const rule = buildCustomBlockRule(7, ["x.io"]);
+  assert.deepEqual(rule.condition, { requestDomains: ["x.io"], domainType: "thirdParty" });
+  assert.equal(rule.condition.resourceTypes, undefined); // default = everything but main_frame
+
+  const idx = buildTrackerIndex(basic, strong, ["doubleclick.net", "mine.example"]);
+  assert.equal(classifyHost("a.doubleclick.net", idx).list, "custom");
+  const hit = classifyHost("cdn.mine.example", idx);
+  assert.equal(wouldBlock(hit, { level: "basic", paused: false, thirdParty: true }), true);
+  assert.equal(wouldBlock(hit, { level: "basic", paused: false, thirdParty: false }), false);
+  assert.equal(wouldBlock(hit, { level: "off", paused: false, thirdParty: true }), false);
+  assert.equal(wouldBlock(hit, { level: "basic", paused: true, thirdParty: true }), false);
 });

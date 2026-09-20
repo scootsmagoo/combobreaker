@@ -37,6 +37,21 @@
           </label>
         </section>
 
+        <section class="side-section" id="blocklist">
+          <h2>Your blocklist</h2>
+          <p class="hint">
+            Extra hosts to block, one per line; subdomains are included. Add them here or with
+            <strong>Block</strong> in Tools → Show trackers. Blocked only when another site loads them,
+            so opening one directly still works. Follows the level above (nothing is blocked on Off) and
+            Pause on this site. Stays on this device; included in Backup.
+          </p>
+          <textarea id="custom-block" rows="6" spellcheck="false" placeholder="tracker.example.com"></textarea>
+          <div class="row-actions">
+            <span id="custom-block-count" class="muted"></span>
+            <button type="button" id="custom-block-save" class="ghost-btn">Save blocklist</button>
+          </div>
+        </section>
+
         <section class="side-section">
           <h2>Dark mode</h2>
           <label class="row">
