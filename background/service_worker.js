@@ -7,6 +7,7 @@ import {
   getCustomBlock,
   setCustomBlock,
   addCustomBlock,
+  importCustomBlock,
 } from "./blocking.js";
 import {
   closeDuplicateTabGroups,
@@ -116,6 +117,8 @@ async function handleMessage(msg, sender) {
       return { hosts: await getCustomBlock() };
     case "custom-block-set":
       return await setCustomBlock(msg.hosts);
+    case "custom-block-import":
+      return await importCustomBlock(msg.text);
     case "custom-block-add":
       return await addCustomBlock(msg.host, sender?.tab?.url);
     case "adblock-matched":

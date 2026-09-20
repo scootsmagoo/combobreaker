@@ -22,6 +22,8 @@ Inspired by the spirit of [@levelsio's combo-extension thread](https://x.com/lev
 
 ### Make sites yours
 
+The popup's Site tab opens with **Your changes here**: a chip for every setting on the current site that is not the default (custom CSS, header rules, cookies blocked, dark mode forced, JavaScript blocked, …), with a link to manage them.
+
 | Feature | What it does |
 |---|---|
 | **Dark mode** | Dark Reader, with a per-site Auto / On / Off. **Auto only darkens bright sites**; ones that are dark already are left alone. [Details ↓](#dark-mode) |
@@ -69,7 +71,7 @@ Three levels, set from the popup's Site tab: **Off**, **Basic** (a hand-picked `
 
 ### Your blocklist
 
-Extra hosts to block, added with the highlighter's **Block** button or edited in Options → **Your blocklist** (one per line; URLs and `*.` prefixes are accepted, IPs and junk are dropped). One dynamic DNR rule, third-party only, so opening a blocked host directly still works. Follows the blocking level (nothing on Off) and per-site pause. Local to the device, included in Backup.
+Extra hosts to block, added with the highlighter's **Block** button or edited in Options → **Your blocklist** (one per line; URLs and `*.` prefixes are accepted, IPs and junk are dropped). **Import file…** merges in a hosts file (`0.0.0.0 ads.example.com`), a plain domain list, or the simple `||domain^` rules of an adblock list; comments, exceptions, cosmetic and path rules are skipped. Up to 5,000 hosts, 500 per dynamic DNR rule. Third-party only, so opening a blocked host directly still works. Follows the blocking level (nothing on Off) and per-site pause. Local to the device, included in Backup.
 
 ### Tracker highlighter
 
@@ -233,6 +235,7 @@ lib/                          storage (sync/local split, migrations), backup, si
 lib/site_rules.js             Pure builders for per-site DNR rules (header overrides, cookie strip, referrer)
 lib/tech.js                   Tech stack signatures + matcher
 lib/trackers.js               Host → blocklist lookup for the tracker highlighter, personal blocklist validation
+lib/site_summary.js           "Your changes here" chips in the popup
 lib/curl.js                   "Copy cURL" command builder
 lib/links.js                  Link select: settings, link cleaning / de-duplication, copy formats
 lib/hls.js                    .m3u8 parser (master / media, byte ranges, encryption, init segments)
@@ -333,7 +336,7 @@ protocol are in [`native/README.md`](native/README.md).
 
 - **Global** switch (popup → Dark mode) × **This site** (Auto / On / Off) × **tuning** in options or the popup.
 - **Off** globally: nothing is darkened unless a site is set to On.
-- **On** globally, site on **Auto**: `content/site_injector.js` measures the page (what is painted behind five points of the viewport, the canvas background, `color-scheme`) and only loads Dark Reader when it is bright. The verdict is cached per site in `chrome.storage.local` (`cb_dark_detect`) so a bright site is darkened from `document_start` on the next visit with no flash; a cached "dark" is re-measured on every load, a cached "bright" expires after 7 days or on **Re-check**. Options → Dark mode → **Skip sites that are already dark** turns the measuring off (every Auto site is darkened).
+- **On** globally, site on **Auto**: `content/site_injector.js` measures the page (what is painted behind five points of the viewport, the canvas background, `color-scheme`) and only loads Dark Reader when it is bright. The verdict is cached per site in `chrome.storage.local` (`cb_dark_detect`) so a bright site is darkened from `document_start` on the next visit with no flash; a cached "dark" is re-measured on every load, a cached "bright" expires after 7 days or on **Re-check**. Options → Dark mode → **Skip sites that are already dark** turns the measuring off (every Auto site is darkened), and **Sites Auto left alone** lists the dark verdicts with **Darken** (force it on) and **Forget** (measure again).
 - `Alt+Shift+D` flips the per-site override; on a site Auto left alone it forces Dark Reader **on**.
 - Dark Reader is injected with a small guard that hides an AMD loader's `define.amd` for that instant, otherwise its UMD wrapper registers as an AMD module on RequireJS sites and never creates `window.DarkReader`.
 

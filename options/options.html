@@ -92,6 +92,8 @@
           <textarea id="custom-block" rows="6" spellcheck="false" placeholder="tracker.example.com"></textarea>
           <div class="row-actions">
             <span id="custom-block-count" class="muted"></span>
+            <button type="button" id="custom-block-import" class="ghost-btn" title="Add the hosts from a file: a hosts file (0.0.0.0 ads.example.com), a plain list of domains, or an adblock list's simple ||domain^ rules. Up to 5,000 hosts in total.">Import file…</button>
+            <input type="file" id="custom-block-file" accept=".txt,.hosts,.list,text/plain" hidden />
             <button type="button" id="custom-block-save" class="ghost-btn">Save blocklist</button>
           </div>
         </section>
@@ -106,6 +108,11 @@
             <span title="Sites left on Auto are checked first: a page that is dark already (its own dark theme, or following your system's dark mode) is left alone, only bright pages are darkened. Switch off to darken every Auto site regardless. A site set to On is always darkened.">Skip sites that are already dark</span>
             <input type="checkbox" id="g-darkmode-detect" />
           </label>
+          <details class="dark-verdicts" id="dark-verdicts">
+            <summary>Sites Auto left alone <span id="dark-verdicts-count" class="muted"></span></summary>
+            <p class="hint">Measured as dark already, so not darkened. <strong>Darken</strong> forces dark mode on for that site; <strong>Forget</strong> makes Auto measure it again on the next visit.</p>
+            <ul id="dark-verdicts-list" class="dark-verdicts-list"></ul>
+          </details>
           <div class="dark-tune">
             <label class="tune-row">
               <span>Mode</span>

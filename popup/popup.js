@@ -3,6 +3,7 @@ import { getGlobal, setGlobal, DARK_DETECT_KEY } from "../lib/storage.js";
 import { initUtilities } from "./utilities.js";
 import { initSnippets } from "./snippets.js";
 import { initStorageView } from "./storage_view.js";
+import { summarizeSite } from "../lib/site_summary.js";
 import { $, STATE, sendMessage, status, debounce } from "./shared.js";
 import { bindCookiesPane, loadCookies } from "./panes/cookies.js";
 import { bindHeadersPane, loadHeaders } from "./panes/headers.js";
@@ -87,6 +88,29 @@ function switchTab(name) {
 
 //  Site pane 
 
+// Chips at the top of the Site tab for everything set on this site that is
+// not the default, so nobody has to remember what they changed where.
+function renderSiteSummary() {
+  const items = STATE.siteKey && STATE.settings ? summarizeSite(STATE.settings, STATE.jsEnabled) : [];
+  const chips = $("site-summary-chips");
+  chips.textContent = "";
+  for (const item of items) {
+    const chip = document.createElement("span");
+    chip.className = `site-chip ${item.kind}`;
+    chip.textContent = item.label;
+    chips.appendChild(chip);
+  }
+  $("site-summary").hidden = items.length === 0;
+}
+
+// Every per-site change from this pane goes through here so the summary
+// and STATE.settings stay in step with storage.
+async function patchSite(patch) {
+  await sendMessage({ type: "set-site", siteKey: STATE.siteKey, patch });
+  if (STATE.settings) Object.assign(STATE.settings, patch);
+  renderSiteSummary();
+}
+
 function renderSiteToggles() {
   const s = STATE.settings;
   $("t-js").checked = !!STATE.jsEnabled;
@@ -100,6 +124,7 @@ function renderSiteToggles() {
   $("t-css-state").textContent = s.css && s.css.trim() ? "" : "nothing written yet";
   $("t-userjs-state").textContent = s.js && s.js.trim() ? "" : "nothing written yet";
   renderDarkOverride(s.darkMode);
+  renderSiteSummary();
 }
 
 // Under the This-site buttons: what Auto measured, so "nothing happened" on a
@@ -194,17 +219,13 @@ function bindAdblock() {
   $("t-adblock-pause").addEventListener("change", async (e) => {
     if (!STATE.siteKey) return;
     const paused = e.target.checked;
-    await sendMessage({ type: "set-site", siteKey: STATE.siteKey, patch: { adblockPaused: paused } });
+    await patchSite({ adblockPaused: paused });
     await sendMessage({ type: "apply-adblock" });
-    if (STATE.settings) STATE.settings.adblockPaused = paused;
     status(paused ? `Blocking paused on ${STATE.siteKey}. Reload the page.` : `Blocking resumed on ${STATE.siteKey}. Reload the page.`, "ok");
   });
 }
 
-async function setSitePrivacy(patch) {
-  await sendMessage({ type: "set-site", siteKey: STATE.siteKey, patch });
-  if (STATE.settings) Object.assign(STATE.settings, patch);
-}
+const setSitePrivacy = patchSite;
 
 function bindPrivacy() {
   $("t-auto-clear").addEventListener("change", async (e) => {
@@ -263,6 +284,10 @@ function bindSitePane() {
   bindAdblock();
   bindPrivacy();
   $("open-options").addEventListener("click", () => chrome.runtime.openOptionsPage());
+  $("site-summary-manage").addEventListener("click", async () => {
+    await chrome.tabs.create({ url: chrome.runtime.getURL(`options/options.html#meta/${encodeURIComponent(STATE.siteKey || "")}`) });
+    window.close();
+  });
 
   $("t-js").addEventListener("change", async (e) => {
     if (!STATE.siteKey) return;
@@ -275,7 +300,7 @@ function bindSitePane() {
   $("t-css").addEventListener("change", async (e) => {
     if (!STATE.siteKey) return;
     const enabled = e.target.checked;
-    await sendMessage({ type: "set-site", siteKey: STATE.siteKey, patch: { cssEnabled: enabled } });
+    await patchSite({ cssEnabled: enabled });
     const empty = !(STATE.settings && STATE.settings.css && STATE.settings.css.trim());
     status(enabled && empty ? "Custom CSS is on, but nothing is written yet. Click Edit CSS." : `Custom CSS ${enabled ? "on" : "off"}.`, "ok");
   });
@@ -283,7 +308,7 @@ function bindSitePane() {
   $("t-userjs").addEventListener("change", async (e) => {
     if (!STATE.siteKey) return;
     const enabled = e.target.checked;
-    await sendMessage({ type: "set-site", siteKey: STATE.siteKey, patch: { jsEnabled: enabled } });
+    await patchSite({ jsEnabled: enabled });
     const empty = !(STATE.settings && STATE.settings.js && STATE.settings.js.trim());
     status(enabled && empty ? "Custom JS is on, but nothing is written yet. Click Edit JS." : `Custom JS ${enabled ? "on" : "off"}. Reload the page to apply.`, "ok");
   });
@@ -320,12 +345,7 @@ function bindDarkSection() {
       if (!STATE.siteKey || btn.disabled) return;
       const val = btn.dataset.val;
       const override = val === "on" ? "on" : val === "off" ? "off" : null;
-      await sendMessage({
-        type: "set-site",
-        siteKey: STATE.siteKey,
-        patch: { darkMode: override },
-      });
-      if (STATE.settings) STATE.settings.darkMode = override;
+      await patchSite({ darkMode: override });
       renderDarkOverride(override);
       const label =
         override === "on"

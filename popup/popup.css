@@ -1270,3 +1270,14 @@ dialog button[value="apply"], dialog button[value="save"], dialog button[value="
 
 /* Link select status in the Browse tab */
 .browse-hint.warn { color: var(--warn); }
+
+/* "Your changes here": per-site settings that differ from the defaults */
+.site-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; padding: 7px 12px; border-bottom: 1px solid var(--border); background: var(--bg-2); }
+.site-summary[hidden] { display: none; }
+.site-summary-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-dim); white-space: nowrap; }
+.site-summary-chips { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
+.site-chip { font-size: 11px; padding: 1px 7px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg-3); white-space: nowrap; }
+.site-chip.block { border-color: rgba(248, 113, 113, 0.5); }
+.site-chip.privacy { border-color: rgba(52, 211, 153, 0.5); }
+.site-chip.net { border-color: rgba(56, 189, 248, 0.5); }
+.site-summary .link-btn { font-size: 11px; }

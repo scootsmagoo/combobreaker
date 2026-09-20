@@ -5,6 +5,7 @@ import {
   setSite,
   listSites,
   deleteSite,
+  DARK_DETECT_KEY,
 } from "../lib/storage.js";
 import { exportAll, importAll } from "../lib/backup.js";
 import { helperInstallCommand } from "../lib/helper.js";
@@ -56,6 +57,7 @@ async function init() {
 
   bindDarkTuneInputs();
   bindLinkSelect(g);
+  bindDarkVerdicts();
   bindCustomBlock();
   bindDownloads(g);
   bindBackup();
@@ -116,8 +118,8 @@ async function init() {
 function parseHash() {
   const h = location.hash.replace(/^#/, "");
   if (!h) return;
-  if (h === "downloads") {
-    $("downloads").scrollIntoView({ behavior: "smooth", block: "start" });
+  if (["downloads", "link-select", "blocklist"].includes(h)) {
+    $(h).scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
   const [tab, site] = h.split("/");
@@ -276,6 +278,62 @@ async function saveActive() {
   chrome.runtime.sendMessage({ type: "apply-auto-clear" }).catch(() => {});
 }
 
+// Dark mode → "Sites Auto left alone": the dark verdicts content/site_injector.js
+// cached, with a way to overrule or forget each one.
+async function bindDarkVerdicts() {
+  const render = async () => {
+    const all = (await chrome.storage.local.get(DARK_DETECT_KEY))[DARK_DETECT_KEY] || {};
+    const dark = Object.keys(all).filter((h) => all[h] && all[h].dark).sort();
+    $("dark-verdicts-count").textContent = `(${dark.length})`;
+    const list = $("dark-verdicts-list");
+    list.textContent = "";
+    if (!dark.length) {
+      const li = document.createElement("li");
+      li.className = "muted";
+      li.textContent = "None yet.";
+      list.appendChild(li);
+    }
+    for (const host of dark) {
+      const li = document.createElement("li");
+      const name = document.createElement("span");
+      name.textContent = host;
+      name.title = host;
+      const mk = (text, title, fn) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "ghost-btn";
+        b.textContent = text;
+        b.title = title;
+        b.addEventListener("click", fn);
+        return b;
+      };
+      const forget = async () => {
+        const cur = (await chrome.storage.local.get(DARK_DETECT_KEY))[DARK_DETECT_KEY] || {};
+        delete cur[host];
+        await chrome.storage.local.set({ [DARK_DETECT_KEY]: cur });
+      };
+      li.append(
+        name,
+        mk("Darken", "Force dark mode on for this site", async () => {
+          await setSite(host, { darkMode: "on" });
+          await forget();
+          await refreshSites();
+          toast(`Dark mode forced on for ${host}`, "ok");
+        }),
+        mk("Forget", "Measure this site again on the next visit", async () => {
+          await forget();
+          toast(`${host} will be measured again`, "ok");
+        })
+      );
+      list.appendChild(li);
+    }
+  };
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes[DARK_DETECT_KEY]) render();
+  });
+  await render();
+}
+
 // Link select settings (content/link_select.js picks changes up live).
 function bindLinkSelect(g) {
   const fields = { "ls-enabled": "enabled", "ls-trigger": "trigger", "ls-action": "action", "ls-copy-format": "copyFormat", "ls-smart": "smart" };
@@ -309,6 +367,24 @@ async function bindCustomBlock() {
     show(resp.result.hosts);
     const dropped = typed - resp.result.hosts.length;
     toast(dropped > 0 ? `Saved ${resp.result.hosts.length}; ${dropped} invalid, duplicate or already covered` : "Blocklist saved", "ok");
+  });
+  $("custom-block-import").addEventListener("click", () => $("custom-block-file").click());
+  $("custom-block-file").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) return toast("That file is over 20 MB; the blocklist holds 5,000 hosts", "err");
+    const resp = await chrome.runtime.sendMessage({ type: "custom-block-import", text: await file.text() });
+    if (!resp || !resp.ok) return toast((resp && resp.error) || "Could not import that file", "err");
+    const r = resp.result;
+    show(r.hosts);
+    const capped = r.hosts.length >= 5000 && r.added < r.found;
+    toast(
+      r.found === 0
+        ? "No host names found in that file"
+        : `${r.added} new host${r.added === 1 ? "" : "s"} added (${r.found} in the file)${capped ? "; the 5,000 limit was reached" : ""}`,
+      r.found ? "ok" : "err"
+    );
   });
   // The highlighter's Block button may add hosts while this page is open.
   chrome.storage.onChanged.addListener((changes, area2) => {

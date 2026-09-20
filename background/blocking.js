@@ -10,7 +10,9 @@ import {
   wouldBlock,
   normalizeBlockHost,
   normalizeBlockList,
-  buildCustomBlockRule,
+  buildCustomBlockRules,
+  parseBlocklistText,
+  CUSTOM_BLOCK_MAX_RULES,
 } from "../lib/trackers.js";
 
 // ---------- Adblock toggle ----------
@@ -25,7 +27,7 @@ import {
 const ADBLOCK_RULESETS = { basic: "combobreaker_basic_block", strong: "combobreaker_strong_block" };
 const ADBLOCK_PAUSE_RULE_ID = 900001;
 const ADBLOCK_PAUSE_PRIORITY = 2;
-const CUSTOM_BLOCK_RULE_ID = 900002;
+const CUSTOM_BLOCK_RULE_ID = 900002; // first of up to CUSTOM_BLOCK_MAX_RULES consecutive ids
 // storage.local (and Backup): string[] of hosts, see "Personal blocklist" below.
 const CUSTOM_BLOCK_KEY = "cb_custom_block";
 
@@ -91,7 +93,7 @@ export async function adblockMatched(tabId) {
   let custom = 0;
   for (const { rule } of rulesMatchedInfo) {
     if (rule.rulesetId === ADBLOCK_RULESETS.strong) strong++;
-    else if (rule.rulesetId === "_dynamic" && rule.ruleId === CUSTOM_BLOCK_RULE_ID) custom++;
+    else if (rule.rulesetId === "_dynamic" && rule.ruleId >= CUSTOM_BLOCK_RULE_ID && rule.ruleId < CUSTOM_BLOCK_RULE_ID + CUSTOM_BLOCK_MAX_RULES) custom++;
     else if (rule.rulesetId === ADBLOCK_RULESETS.basic) {
       const name = names.get(rule.ruleId) || `rule ${rule.ruleId}`;
       byName.set(name, (byName.get(name) || 0) + 1);
@@ -114,10 +116,10 @@ export async function getCustomBlock() {
 
 async function applyCustomBlockRule(level) {
   trackerIndex = null; // the list may have changed underneath (backup import)
-  const rule = level === "off" ? null : buildCustomBlockRule(CUSTOM_BLOCK_RULE_ID, await getCustomBlock());
+  const addRules = level === "off" ? [] : buildCustomBlockRules(CUSTOM_BLOCK_RULE_ID, await getCustomBlock());
   await chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: [CUSTOM_BLOCK_RULE_ID],
-    addRules: rule ? [rule] : [],
+    removeRuleIds: Array.from({ length: CUSTOM_BLOCK_MAX_RULES }, (_, i) => CUSTOM_BLOCK_RULE_ID + i),
+    addRules,
   });
 }
 
@@ -127,6 +129,15 @@ export async function setCustomBlock(input) {
   trackerIndex = null;
   await applyCustomBlockRule((await getGlobal()).adblockLevel);
   return { hosts };
+}
+
+// Options → Import file: hosts files, domain lists, simple adblock rules.
+// Merged into the existing list; the counts let the page say what happened.
+export async function importCustomBlock(text) {
+  const before = await getCustomBlock();
+  const found = normalizeBlockList(parseBlocklistText(text));
+  const { hosts } = await setCustomBlock([...before, ...found]);
+  return { hosts, found: found.length, added: hosts.length - before.length };
 }
 
 // From a page (the highlighter): never the page's own site, that is what

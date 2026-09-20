@@ -8,7 +8,9 @@ import {
   wouldBlock,
   normalizeBlockHost,
   normalizeBlockList,
-  buildCustomBlockRule,
+  buildCustomBlockRules,
+  parseBlocklistText,
+  CUSTOM_BLOCK_MAX,
 } from "../lib/trackers.js";
 
 const basic = [{ id: 1, condition: { urlFilter: "||doubleclick.net^" } }, { id: 2, condition: { urlFilter: "/ads.js" } }];
@@ -76,11 +78,14 @@ test("normalizeBlockList de-duplicates, sorts and drops covered subdomains", () 
   assert.deepEqual(normalizeBlockList(""), []);
 });
 
-test("custom list: rule shape, index priority, third-party only", () => {
-  assert.equal(buildCustomBlockRule(7, []), null);
-  const rule = buildCustomBlockRule(7, ["x.io"]);
+test("custom list: rule shape, chunking, index priority, third-party only", () => {
+  assert.deepEqual(buildCustomBlockRules(7, []), []);
+  const [rule] = buildCustomBlockRules(7, ["x.io"]);
+  assert.equal(rule.id, 7);
   assert.deepEqual(rule.condition, { requestDomains: ["x.io"], domainType: "thirdParty" });
   assert.equal(rule.condition.resourceTypes, undefined); // default = everything but main_frame
+  const many = buildCustomBlockRules(100, Array.from({ length: 1201 }, (_, i) => `h${i}.example`));
+  assert.deepEqual(many.map((r) => [r.id, r.condition.requestDomains.length]), [[100, 500], [101, 500], [102, 201]]);
 
   const idx = buildTrackerIndex(basic, strong, ["doubleclick.net", "mine.example"]);
   assert.equal(classifyHost("a.doubleclick.net", idx).list, "custom");
@@ -89,4 +94,33 @@ test("custom list: rule shape, index priority, third-party only", () => {
   assert.equal(wouldBlock(hit, { level: "basic", paused: false, thirdParty: false }), false);
   assert.equal(wouldBlock(hit, { level: "off", paused: false, thirdParty: true }), false);
   assert.equal(wouldBlock(hit, { level: "basic", paused: true, thirdParty: true }), false);
+});
+
+test("parseBlocklistText: hosts files, domain lists, simple adblock rules", () => {
+  const text = `# Title: some hosts file
+! adblock-style comment
+[Adblock Plus 2.0]
+127.0.0.1 localhost
+::1 ip6-localhost
+0.0.0.0 0.0.0.0
+0.0.0.0 ads.example.com   # inline comment
+0.0.0.0 a.tracker.net b.tracker.net
+plain-domain.org
+||adblock.example^
+||third.example^$third-party
+||pathy.example/ads/*
+@@||allowed.example^
+example.com##.banner
+/banner/*/img^
+*.wild.example
+two words`;
+  assert.deepEqual(parseBlocklistText(text), ["ads.example.com", "a.tracker.net", "b.tracker.net", "plain-domain.org", "adblock.example", "third.example"]);
+  assert.deepEqual(normalizeBlockList(parseBlocklistText(text)), ["a.tracker.net", "adblock.example", "ads.example.com", "b.tracker.net", "plain-domain.org", "third.example"]);
+  assert.deepEqual(parseBlocklistText(""), []);
+  assert.deepEqual(parseBlocklistText(null), []);
+});
+
+test("the blocklist is capped", () => {
+  const big = Array.from({ length: CUSTOM_BLOCK_MAX + 50 }, (_, i) => `host${i}.example`);
+  assert.equal(normalizeBlockList(big).length, CUSTOM_BLOCK_MAX);
 });
