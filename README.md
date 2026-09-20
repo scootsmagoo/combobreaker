@@ -30,7 +30,7 @@ Inspired by the spirit of [@levelsio's combo-extension thread](https://x.com/lev
 | **Browse tools** | **Viewport / User-Agent** presets (resize window + optional UA for this site via DNR), **tab session** save/restore, **find duplicate** URLs and close extras, and **skip cache** for the current tab’s requests while the popup is open (see service worker for details). |
 | **Utility belt** | Tucked into the **Tools** tab — JWT decoder, encoder/decoder (Base64 / Base64-URL / URL / hex / HTML entity), regex tester with live highlights, Unix-timestamp ↔ ISO-date converter, color converter (hex / rgb / hsl / oklch) with WCAG contrast checker, line/word diff viewer, fake data + lorem-ipsum generator, password / UUID generator, and a locally rendered QR code for the current URL. Each tool is a `<details>` collapsible — open only what you need. Client-side only; no network. |
 | **Kagi search** | Sets Kagi as your default search provider on install. Chrome only lets a manifest declare this, so it can't be toggled at runtime — decline Chrome's prompt, or delete `chrome_settings_overrides` from `manifest.json`, if you don't want it. |
-| **Backup** | Options → **Backup**: export / import every setting (global, per-site CSS/JS/headers, snippets, tab sessions) as one JSON file. |
+| **Backup** | Options → **Backup**: export / import every setting (global, per-site CSS/JS/headers and privacy switches, snippets, tab sessions, your blocklist) as one JSON file. |
 | **Ad & tracker blocking** | Three levels, set from the popup's Site tab: **Off**, **Basic** (a hand-picked `declarativeNetRequest` list of ~40 of the biggest ad, analytics and social-pixel companies; very unlikely to break anything) and **Strong** (Basic plus [Peter Lowe's list](https://pgl.yoyo.org/adservers/) of ~3,500 ad and tracking servers, third-party requests only). **Pause on this site** switches blocking off for one site, e.g. when something breaks or you need its analytics / tag manager to load. The toolbar icon shows how many requests were blocked on the current page (switch it off in options) and the Site tab names the companies. It blocks network requests only: no cosmetic filtering, no YouTube ads. Run uBlock Origin Lite alongside if you want those. The Strong list is regenerated weekly by `.github/workflows/blocklist.yml`, which opens a PR (or run `node scripts/update_blocklist.js` yourself); the extension never fetches it at runtime. |
 | **Per-site privacy** | Site tab, three switches for the site you are on. **Forget this site when I close it**: when its last tab closes, the same wipe as *Nuke all site data* runs (also swept at browser start, since quitting can outrun the cleanup). **Block third-party cookies here**: requests the site's pages make to other companies go out without cookies and cannot set any (DNR header rules; link navigations are untouched, requests from inside third-party iframes are not covered). **Referrer sent by this site**: origin only / nothing to other sites / never, as a `Referrer-Policy` response header plus a `Referer` strip for the strict options. |
 | **Tracker highlighter** | **Tools → Show trackers**: a visual privacy audit of the page. Outlines images and frames from hosts on the Basic / Strong lists, marks hidden third-party pixels and iframes, and lists every tracker host (scripts and fetch/beacon requests included) with whether your current blocking level stops it. Click a row to scroll to it; **Block** adds a host that is getting through to your blocklist; Esc closes. |
@@ -132,8 +132,9 @@ background/helper_installer.js Fills in native/install.cmd and hands it to chrom
 native/                       The Helper: native messaging host (Node) + one-line installers
 viewer/helper_setup.*         Setup page: OS-specific step, polls until the Helper answers
 lib/helper.js                 Helper constants (source URL, install one-liner, folders)
-content/schema_inject.js      Injected to collect JSON-LD / microdata / RDFa for structured-data viewer
+content/schema_inject.js      Injected to collect meta / SEO tags, JSON-LD, microdata and RDFa for the viewer
 content/reader_inject.js      Injected with Readability + Turndown for reader / Copy as Markdown
+content/dr_amd_guard_*.js     Wrapped around the Dark Reader injection (hide define.amd for that instant)
 tools/                        On-demand: color picker, ruler, whatfont, tracker highlighter
 viewer/                       hls_downloader, reader, structured_data
 vendor/                       Dark Reader, qrcode-generator, Readability, Turndown
@@ -152,7 +153,7 @@ scripts/                      check_manifest, pack, icon build, puppeteer smoke 
 icons/                        PNG icons
 ```
 
-Small settings live in `chrome.storage.sync` so they follow your Chrome profile. Per-site CSS/JS bodies live in `chrome.storage.local` (`sitecode:<host>`) because sync caps each item at ~8 KB; they stay on this device, so use Options → Backup to move them. Snippets, tab sessions and DNR bookkeeping are also local; per-tab captures (redirects, headers, media) are in `chrome.storage.session`.
+Small settings live in `chrome.storage.sync` so they follow your Chrome profile. Per-site CSS/JS bodies live in `chrome.storage.local` (`sitecode:<host>`) because sync caps each item at ~8 KB; they stay on this device, so use Options → Backup to move them. Snippets, tab sessions, your blocklist (`cb_custom_block`), dark mode's per-site Auto verdicts (`cb_dark_detect`, a cache, not in Backup) and DNR bookkeeping are also local; per-tab captures (redirects, headers, media, which auto-clear sites a tab has shown) are in `chrome.storage.session`.
 
 ### Video downloader
 
@@ -255,6 +256,9 @@ ComboBreaker:
 - Asks for `<all_urls>` so per-site CSS/JS and tools can work on the pages you choose.
 - `nativeMessaging` is only used for the ComboBreaker Helper, which you install yourself and which only ever runs its local `yt-dlp`.
 - `cookies` is used for the Cookies tab and the optional "Use my browser's cookies" download setting (off by default).
+- `browsingData` is used for **Nuke all site data** and **Forget this site when I close it**, and only ever for the one site you chose.
+- `scripting` runs the on-demand tools, the storage viewer and the tech / SEO probes in the current tab; what they read stays in the popup or viewer page.
+- `notifications` is used for finished or failed Helper downloads and the optional nuke shortcut.
 - `declarativeNetRequestFeedback` only lets the popup read which of its own block rules fired on the current tab, for the blocked count.
 
 ## Contributing
