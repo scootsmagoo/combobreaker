@@ -10,31 +10,109 @@ Inspired by the spirit of [@levelsio's combo-extension thread](https://x.com/lev
 
 ## Features
 
+### Privacy & blocking
+
 | Feature | What it does |
 |---|---|
+| **Ad & tracker blocking** | Off / **Basic** (~40 big ad, analytics and social-pixel companies) / **Strong** (+ ~3,500 ad and tracking servers). Per-site pause, a blocked count on the toolbar icon, and the popup names who was blocked. [Details ↓](#ad--tracker-blocking) |
+| **Your blocklist** | Add your own hosts, from the tracker highlighter's **Block** button or a list in options. [Details ↓](#your-blocklist) |
+| **Tracker highlighter** | A visual privacy audit of the page: outlines what comes from known trackers, marks hidden pixels and iframes, and says whether each host is being blocked. [Details ↓](#tracker-highlighter) |
+| **Per-site privacy** | Three switches for the site you are on: forget it when its last tab closes, block third-party cookies there, and limit the referrer it sends. [Details ↓](#per-site-privacy) |
 | **Per-site JS toggle** | Disable JavaScript on a domain via `chrome.contentSettings`. Survives reloads. |
+
+### Make sites yours
+
+| Feature | What it does |
+|---|---|
+| **Dark mode** | Dark Reader, with a per-site Auto / On / Off. **Auto only darkens bright sites**; ones that are dark already are left alone. [Details ↓](#dark-mode) |
 | **Per-site custom CSS** | A small Stylus-style editor; CSS is injected at `document_start` only on the matching site. |
-| **Per-site custom JS** | Run your own script on a domain, in the page's MAIN world (no `GM_*` API). Delivered through `chrome.userScripts`, which works even on strict-CSP sites — turn on **Allow User Scripts** for ComboBreaker at `chrome://extensions` → Details. Without that switch it falls back to `chrome.scripting`, which runs slightly later and is subject to the page's CSP. |
+| **Per-site custom JS** | Your own script on a domain, run in the page's world on every visit, including on strict-CSP sites. [Details ↓](#per-site-custom-js) |
 | **Snippets** | **Tools → Snippets**: named JS blobs you run on the current tab with one click (the bookmarklet use case). Ships with table→CSV, un-stick fixed overlays, and re-enable text selection. |
-| **Dark mode** | Powered by [Dark Reader](https://darkreader.org/) (vendored, MIT). One global switch plus a per-site **Auto / On / Off**. With the switch on, **Auto darkens only bright sites**: a page that is dark already (its own dark theme, or following your system) is measured and left alone; the popup says which it decided, with a **Re-check** link. Brightness / contrast / sepia / grayscale / mode sliders in the popup and options. |
+
+### Inspect & debug
+
+| Feature | What it does |
+|---|---|
+| **Cookies, storage, headers, redirects** | Cookie editor, localStorage / sessionStorage viewer with JSON export, one-click **Nuke all site data**, response headers with per-site header overrides and **Copy cURL**, and the redirect chain for the tab. [Details ↓](#cookies-storage-headers-redirects) |
+| **JSON formatter** | Pretty-prints raw JSON responses: tree / formatted / raw views, depth controls, JSON paths, themes. [Details ↓](#json-formatter) |
+| **SEO & structured data** | Title, description, canonical, Open Graph / Twitter tags, heading outline and images without `alt`, plus JSON-LD, microdata, RDFa and a JSON-LD builder. [Details ↓](#seo--structured-data) |
+| **Tech stack** | Site tab → **Built with**: framework, CMS, analytics, services and hosting chips from ~75 local signatures (page globals, DOM, script URLs, response headers). No network calls. |
+| **Utility belt** | JWT decoder, encoders, regex tester, timestamp and colour converters with a contrast checker, diff, fake data, password / UUID generator, QR code. All local. [Details ↓](#utility-belt) |
 | **Color picker** | Native `EyeDropper` API — one click, hex copied to clipboard. |
 | **Pixel ruler** | On-page draggable ruler overlay. |
 | **Font inspector** | Hover any element to see its font stack, size, weight, line-height, color. |
-| **JSON formatter** | Auto-pretty-prints `application/json` responses. Tree / Formatted / Raw view modes, depth-level expand buttons (1–5, All), hover for JSON path + click to pin & copy, per-node "expand all descendants", auto/dark/light theme, and `window.data` exposed in the page console. |
-| **Full-page screenshot** | Scroll-and-stitch the entire page to a PNG download. |
-| **Video downloader** | Hover any video player or thumbnail and a small **download badge** appears on it (YouTube feeds and players, Twitter/X videos and GIFs, any `<video>`). Click to download, or open the caret for quality presets. The **Media** tab in the popup lists the videos on the page with thumbnails and a "find on page" action, shows download progress, and keeps the raw sniffed-URL list. Direct files go through `chrome.downloads`; HLS has an in-extension downloader; YouTube, DASH and split-audio HLS use the **ComboBreaker Helper**, a one-time install that runs yt-dlp locally (see below). |
-| **Reader view** | **Browse** tab: extract the main article with [Mozilla Readability](https://github.com/mozilla/readability) and open a clean **reader** tab. Optional **Copy as Markdown** uses [Turndown](https://github.com/mixmark-io/turndown) for notes or LLM workflows. Vendored under `vendor/`. |
-| **SEO & structured data** | **Browse** → **View SEO & structured data**: a **Meta & SEO** section (title and description with lengths, canonical, robots, lang, viewport, Open Graph / Twitter tags, heading outline, link counts, images missing `alt`, with rule-of-thumb check chips), then list every `<script type="application/ld+json">` block, summarize `@type`, pretty-print, copy, heuristic notes, microdata and RDFa summaries, and **links to Google’s Rich Results Test and the Schema.org validator** for the current tab URL. Includes a small **JSON-LD builder** (common types) to generate and copy markup — all local; optional validator links are the only use of the network. |
 | **Encoding override** | Manually set character encoding for legacy/garbled pages. |
-| **Cookies, storage, headers, redirects** | **Cookies** tab: list, edit, or delete cookies for the current site, switch to **Local storage** / **Session storage** to view (JSON pretty-printed), copy, edit, add, delete or **Export** keys as JSON and see the page's IndexedDB / Cache Storage names, plus **Nuke all site data** (cookies, localStorage, IndexedDB, Cache Storage, service workers — DevTools' “Clear site data” in one click). **Headers** tab: recent response header captures, **Copy cURL** (repeats the request from a terminal with your request-header overrides, never cookies), plus quick link to your request/response **header overrides** in options. **Redirects** tab: redirect chain for the current tab, copy, clear. |
-| **Browse tools** | **Viewport / User-Agent** presets (resize window + optional UA for this site via DNR), **tab session** save/restore, **find duplicate** URLs and close extras, and **skip cache** for the current tab’s requests while the popup is open (see service worker for details). |
-| **Utility belt** | Tucked into the **Tools** tab — JWT decoder, encoder/decoder (Base64 / Base64-URL / URL / hex / HTML entity), regex tester with live highlights, Unix-timestamp ↔ ISO-date converter, color converter (hex / rgb / hsl / oklch) with WCAG contrast checker, line/word diff viewer, fake data + lorem-ipsum generator, password / UUID generator, and a locally rendered QR code for the current URL. Each tool is a `<details>` collapsible — open only what you need. Client-side only; no network. |
+
+### Read, capture & download
+
+| Feature | What it does |
+|---|---|
+| **Video downloader** | A download badge on any video or thumbnail (YouTube, Twitter/X, plain `<video>`), a Media tab with progress, a built-in HLS downloader, and the optional **ComboBreaker Helper** (local yt-dlp) for YouTube and DASH. [Details ↓](#video-downloader) |
+| **Reader view** | Clean reader tab via Mozilla Readability, and **Copy as Markdown** for notes or LLM workflows. [Details ↓](#reader-view) |
+| **Full-page screenshot** | Scroll-and-stitch the entire page to a PNG download. |
+| **Browse tools** | Viewport / User-Agent presets, tab session save and restore, duplicate-tab finder, and skip-cache while the popup is open. [Details ↓](#browse-tools) |
+
+### Housekeeping
+
+| Feature | What it does |
+|---|---|
 | **Backup** | Options → **Backup**: export / import every setting (global, per-site CSS/JS/headers and privacy switches, snippets, tab sessions, your blocklist) as one JSON file. |
-| **Ad & tracker blocking** | Three levels, set from the popup's Site tab: **Off**, **Basic** (a hand-picked `declarativeNetRequest` list of ~40 of the biggest ad, analytics and social-pixel companies; very unlikely to break anything) and **Strong** (Basic plus [Peter Lowe's list](https://pgl.yoyo.org/adservers/) of ~3,500 ad and tracking servers, third-party requests only). **Pause on this site** switches blocking off for one site, e.g. when something breaks or you need its analytics / tag manager to load. The toolbar icon shows how many requests were blocked on the current page (switch it off in options) and the Site tab names the companies. It blocks network requests only: no cosmetic filtering, no YouTube ads. Run uBlock Origin Lite alongside if you want those. The Strong list is regenerated weekly by `.github/workflows/blocklist.yml`, which opens a PR (or run `node scripts/update_blocklist.js` yourself); the extension never fetches it at runtime. |
-| **Per-site privacy** | Site tab, three switches for the site you are on. **Forget this site when I close it**: when its last tab closes, the same wipe as *Nuke all site data* runs (also swept at browser start, since quitting can outrun the cleanup). **Block third-party cookies here**: requests the site's pages make to other companies go out without cookies and cannot set any (DNR header rules; link navigations are untouched, requests from inside third-party iframes are not covered). **Referrer sent by this site**: origin only / nothing to other sites / never, as a `Referrer-Policy` response header plus a `Referer` strip for the strict options. |
-| **Tracker highlighter** | **Tools → Show trackers**: a visual privacy audit of the page. Outlines images and frames from hosts on the Basic / Strong lists, marks hidden third-party pixels and iframes, and lists every tracker host (scripts and fetch/beacon requests included) with whether your current blocking level stops it. Click a row to scroll to it; **Block** adds a host that is getting through to your blocklist; Esc closes. |
-| **Your blocklist** | Extra hosts to block, added with the highlighter's **Block** button or edited in Options → **Your blocklist** (one per line; URLs and `*.` prefixes are accepted, IPs and junk are dropped). One dynamic DNR rule, third-party only, so opening a blocked host directly still works. Follows the blocking level (nothing on Off) and per-site pause. Local to the device, included in Backup. |
-| **Tech stack** | Site tab → **Built with**: framework, CMS, analytics, services and hosting chips from ~75 local signatures (page globals, DOM, script URLs, response headers). No network calls. |
+
+## Feature details
+
+The longer story for the features above that need one. The video downloader and dark mode go deeper under Architecture: [Video downloader internals](#video-downloader-internals), [Dark-mode model](#dark-mode-model).
+
+### Ad & tracker blocking
+
+Three levels, set from the popup's Site tab: **Off**, **Basic** (a hand-picked `declarativeNetRequest` list of ~40 of the biggest ad, analytics and social-pixel companies; very unlikely to break anything) and **Strong** (Basic plus [Peter Lowe's list](https://pgl.yoyo.org/adservers/) of ~3,500 ad and tracking servers, third-party requests only). **Pause on this site** switches blocking off for one site, e.g. when something breaks or you need its analytics / tag manager to load. The toolbar icon shows how many requests were blocked on the current page (switch it off in options) and the Site tab names the companies. It blocks network requests only: no cosmetic filtering, no YouTube ads. Run uBlock Origin Lite alongside if you want those. The Strong list is regenerated weekly by `.github/workflows/blocklist.yml`, which opens a PR (or run `node scripts/update_blocklist.js` yourself); the extension never fetches it at runtime.
+
+### Your blocklist
+
+Extra hosts to block, added with the highlighter's **Block** button or edited in Options → **Your blocklist** (one per line; URLs and `*.` prefixes are accepted, IPs and junk are dropped). One dynamic DNR rule, third-party only, so opening a blocked host directly still works. Follows the blocking level (nothing on Off) and per-site pause. Local to the device, included in Backup.
+
+### Tracker highlighter
+
+**Tools → Show trackers**: a visual privacy audit of the page. Outlines images and frames from hosts on the Basic / Strong lists, marks hidden third-party pixels and iframes, and lists every tracker host (scripts and fetch/beacon requests included) with whether your current blocking level stops it. Click a row to scroll to it; **Block** adds a host that is getting through to your blocklist; Esc closes.
+
+### Per-site privacy
+
+Site tab, three switches for the site you are on. **Forget this site when I close it**: when its last tab closes, the same wipe as *Nuke all site data* runs (also swept at browser start, since quitting can outrun the cleanup). **Block third-party cookies here**: requests the site's pages make to other companies go out without cookies and cannot set any (DNR header rules; link navigations are untouched, requests from inside third-party iframes are not covered). **Referrer sent by this site**: origin only / nothing to other sites / never, as a `Referrer-Policy` response header plus a `Referer` strip for the strict options.
+
+### Dark mode
+
+Powered by [Dark Reader](https://darkreader.org/) (vendored, MIT). One global switch plus a per-site **Auto / On / Off**. With the switch on, **Auto darkens only bright sites**: a page that is dark already (its own dark theme, or following your system) is measured and left alone; the popup says which it decided, with a **Re-check** link. Brightness / contrast / sepia / grayscale / mode sliders in the popup and options.
+
+### Per-site custom JS
+
+Run your own script on a domain, in the page's MAIN world (no `GM_*` API). Delivered through `chrome.userScripts`, which works even on strict-CSP sites — turn on **Allow User Scripts** for ComboBreaker at `chrome://extensions` → Details. Without that switch it falls back to `chrome.scripting`, which runs slightly later and is subject to the page's CSP.
+
+### Cookies, storage, headers, redirects
+
+**Cookies** tab: list, edit, or delete cookies for the current site, switch to **Local storage** / **Session storage** to view (JSON pretty-printed), copy, edit, add, delete or **Export** keys as JSON and see the page's IndexedDB / Cache Storage names, plus **Nuke all site data** (cookies, localStorage, IndexedDB, Cache Storage, service workers — DevTools' “Clear site data” in one click). **Headers** tab: recent response header captures, **Copy cURL** (repeats the request from a terminal with your request-header overrides, never cookies), plus quick link to your request/response **header overrides** in options. **Redirects** tab: redirect chain for the current tab, copy, clear.
+
+### JSON formatter
+
+Auto-pretty-prints `application/json` responses. Tree / Formatted / Raw view modes, depth-level expand buttons (1–5, All), hover for JSON path + click to pin & copy, per-node "expand all descendants", auto/dark/light theme, and `window.data` exposed in the page console.
+
+### SEO & structured data
+
+**Browse** → **View SEO & structured data**: a **Meta & SEO** section (title and description with lengths, canonical, robots, lang, viewport, Open Graph / Twitter tags, heading outline, link counts, images missing `alt`, with rule-of-thumb check chips), then list every `<script type="application/ld+json">` block, summarize `@type`, pretty-print, copy, heuristic notes, microdata and RDFa summaries, and **links to Google’s Rich Results Test and the Schema.org validator** for the current tab URL. Includes a small **JSON-LD builder** (common types) to generate and copy markup — all local; optional validator links are the only use of the network.
+
+### Utility belt
+
+Tucked into the **Tools** tab — JWT decoder, encoder/decoder (Base64 / Base64-URL / URL / hex / HTML entity), regex tester with live highlights, Unix-timestamp ↔ ISO-date converter, color converter (hex / rgb / hsl / oklch) with WCAG contrast checker, line/word diff viewer, fake data + lorem-ipsum generator, password / UUID generator, and a locally rendered QR code for the current URL. Each tool is a `<details>` collapsible — open only what you need. Client-side only; no network.
+
+### Video downloader
+
+Hover any video player or thumbnail and a small **download badge** appears on it (YouTube feeds and players, Twitter/X videos and GIFs, any `<video>`). Click to download, or open the caret for quality presets. The **Media** tab in the popup lists the videos on the page with thumbnails and a "find on page" action, shows download progress, and keeps the raw sniffed-URL list. Direct files go through `chrome.downloads`; HLS has an in-extension downloader; YouTube, DASH and split-audio HLS use the **ComboBreaker Helper**, a one-time install that runs yt-dlp locally (see below).
+
+### Reader view
+
+**Browse** tab: extract the main article with [Mozilla Readability](https://github.com/mozilla/readability) and open a clean **reader** tab. Optional **Copy as Markdown** uses [Turndown](https://github.com/mixmark-io/turndown) for notes or LLM workflows. Vendored under `vendor/`.
+
+### Browse tools
+
+**Viewport / User-Agent** presets (resize window + optional UA for this site via DNR), **tab session** save/restore, **find duplicate** URLs and close extras, and **skip cache** for the current tab’s requests while the popup is open (see service worker for details).
 
 ## Install (developer mode)
 
@@ -156,7 +234,7 @@ icons/                        PNG icons
 
 Small settings live in `chrome.storage.sync` so they follow your Chrome profile. Per-site CSS/JS bodies live in `chrome.storage.local` (`sitecode:<host>`) because sync caps each item at ~8 KB; they stay on this device, so use Options → Backup to move them. Snippets, tab sessions, your blocklist (`cb_custom_block`), dark mode's per-site Auto verdicts (`cb_dark_detect`, a cache, not in Backup) and DNR bookkeeping are also local; per-tab captures (redirects, headers, media, which auto-clear sites a tab has shown) are in `chrome.storage.session`.
 
-### Video downloader
+### Video downloader internals
 
 #### On-page badge
 
