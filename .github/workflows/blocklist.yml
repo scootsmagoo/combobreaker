@@ -44,6 +44,12 @@ jobs:
           git add rules/strong_block.json rules/strong_block.meta.json
           git commit -m "Refresh Strong blocklist ($domains domains)"
           git push -f origin "$branch"
-          gh pr create --title "Refresh Strong blocklist ($domains domains)" \
-            --body "Weekly regeneration of \`rules/strong_block.json\` from https://pgl.yoyo.org/adservers/ by \`scripts/update_blocklist.js\`. Review the diff for anything surprising before merging." \
-            || echo "A PR for $branch already exists."
+          if [ -n "$(gh pr list --head "$branch" --state open --json number -q '.[0].number')" ]; then
+            echo "A PR for $branch is already open; the branch was updated."
+            exit 0
+          fi
+          if ! gh pr create --title "Refresh Strong blocklist ($domains domains)" \
+            --body "Weekly regeneration of \`rules/strong_block.json\` from https://pgl.yoyo.org/adservers/ by \`scripts/update_blocklist.js\`. Review the diff for anything surprising before merging."; then
+            echo "::error::The list changed and branch $branch was pushed, but the PR could not be opened. Turn on Settings > Actions > General > 'Allow GitHub Actions to create and approve pull requests', or open the PR from that branch by hand."
+            exit 1
+          fi
