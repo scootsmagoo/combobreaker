@@ -10,6 +10,7 @@ import {
   DIRECT_KINDS,
 } from "../lib/media.js";
 import { ytdlpDownload, ytdlpStatus } from "./ytdlp_bridge.js";
+import { REOPEN_KEY } from "../lib/helper.js";
 
 // ---------- Media (video/audio) sniffer ----------
 //
@@ -165,11 +166,11 @@ export async function overlayDownload(msg, sender) {
     mode: "needs-helper",
     reason: status.error || "Helper not installed.",
     // "Installed but broken" asks for a repair; a missing permission is just "not set up yet".
-    installed: !status.needsPermission && !/not installed/i.test(status.error || ""),
+    installed: status.permission === "ready" && !/not installed/i.test(status.error || ""),
   };
 }
 
-export async function openHelperSetup() {
+export async function openHelperSetup(place) {
   const url = chrome.runtime.getURL("viewer/helper_setup.html");
   // Reuse an open setup tab instead of stacking them.
   const open = await chrome.tabs.query({ url });
@@ -178,8 +179,34 @@ export async function openHelperSetup() {
     try { await chrome.windows.update(open[0].windowId, { focused: true }); } catch {}
     return { tabId: open[0].id };
   }
+  if (place && place.windowId != null) {
+    // Put it back where it was before the extension reloaded.
+    try {
+      const tab = await chrome.tabs.create({ url, windowId: place.windowId, index: place.index, active: true });
+      return { tabId: tab.id };
+    } catch {}
+  }
   const tab = await chrome.tabs.create({ url });
   return { tabId: tab.id };
+}
+
+// The bridge reloads the extension after the nativeMessaging permission is
+// granted (see ytdlp_bridge.js). Chrome closes every extension page when that
+// happens, so the setup page notes where it was and this puts it back on the
+// next worker start. Runs at worker start-up; the note is consumed once.
+export async function reopenHelperSetupIfPending() {
+  let place = null;
+  try {
+    const data = await chrome.storage.local.get(REOPEN_KEY);
+    place = data[REOPEN_KEY] || null;
+    if (place) await chrome.storage.local.remove(REOPEN_KEY);
+  } catch {
+    return;
+  }
+  if (!place) return;
+  try {
+    await openHelperSetup(place);
+  } catch {}
 }
 
 // Collect badge items from every frame of a tab. chrome.scripting runs in the
@@ -187,6 +214,14 @@ export async function openHelperSetup() {
 // hook media_overlay.js leaves on window.
 export async function overlayListAllFrames(tabId) {
   if (tabId == null || tabId < 0) return [];
+  // Extension pages, chrome:// and the Web Store cannot be scripted; there is
+  // nothing to list there and asking only produces a console error.
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!/^(https?|file):/i.test(tab.url || tab.pendingUrl || "")) return [];
+  } catch {
+    return [];
+  }
   let results = [];
   try {
     results = await chrome.scripting.executeScript({

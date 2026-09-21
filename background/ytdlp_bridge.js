@@ -9,6 +9,7 @@
 // process doesn't linger and the SW can idle.
 
 import { getGlobal } from "../lib/storage.js";
+import { RELOAD_AT_KEY, REOPEN_KEY, helperPermissionState } from "../lib/helper.js";
 
 export const HOST_NAME = "com.combobreaker.ytdlp";
 const JOBS_KEY = "ytdlp:jobs";
@@ -71,14 +72,95 @@ async function cookieFileFor(url) {
 
 // ---------- port ----------
 
+// ---------- optional permission ----------
+
 // nativeMessaging is an optional permission (asked for on the Helper setup
-// page), so connectNative may not exist yet.
+// page). Chrome records the grant at once, but a service worker that was
+// already running keeps a chrome.runtime without connectNative until the
+// extension is reloaded. Removing and re-adding the extension (a fresh
+// unpacked load, a reinstall from a package) also drops the grant, so an
+// already-installed Helper then looks "not connected". permissionState()
+// tells the two apart and reloadForPermission() gets the worker unstuck.
 export const NEEDS_PERMISSION = "ComboBreaker has not been allowed to talk to the Helper yet.";
+export const NEEDS_RELOAD = "Permission granted. ComboBreaker is restarting to finish; this takes a second.";
+export const NEEDS_BROWSER_RESTART =
+  "Chrome granted the permission but has not activated it. Quit the browser completely and open it again.";
+
+const NM = { permissions: ["nativeMessaging"] };
+
+async function hasNativeMessagingGrant() {
+  try {
+    return !!(await chrome.permissions.contains(NM));
+  } catch {
+    // No permissions API at all (very old browser): trust the binding.
+    return typeof chrome.runtime.connectNative === "function";
+  }
+}
+
+export async function permissionState() {
+  const granted = await hasNativeMessagingGrant();
+  const bound = typeof chrome.runtime.connectNative === "function";
+  let lastReloadAt = 0;
+  try {
+    lastReloadAt = Number((await chrome.storage.local.get(RELOAD_AT_KEY))[RELOAD_AT_KEY]) || 0;
+  } catch {}
+  const state = helperPermissionState({ granted, bound, lastReloadAt });
+  if (state === "ready" && lastReloadAt) {
+    // The reload did its job; forget it so a later grant can reload again.
+    chrome.storage.local.remove(RELOAD_AT_KEY).catch(() => {});
+  }
+  return state;
+}
+
+let reloadScheduled = false;
+
+// Reload the extension so the worker picks up the freshly granted API. If the
+// setup page is open it is reopened in the same place afterwards
+// (reopenHelperSetupIfPending in media.js). The response to whichever message
+// asked for status goes out first; the reload follows a moment later.
+async function reloadForPermission() {
+  if (reloadScheduled) return;
+  reloadScheduled = true;
+  const patch = { [RELOAD_AT_KEY]: Date.now() };
+  try {
+    const url = chrome.runtime.getURL("viewer/helper_setup.html");
+    const open = await chrome.tabs.query({ url });
+    if (open.length) patch[REOPEN_KEY] = { windowId: open[0].windowId, index: open[0].index };
+  } catch {}
+  try {
+    await chrome.storage.local.set(patch);
+  } catch {}
+  setTimeout(() => chrome.runtime.reload(), 400);
+}
+
+function dropPort(reason) {
+  statusCache = null;
+  if (!port) return;
+  try {
+    port.disconnect();
+  } catch {}
+  port = null;
+  portError = reason || null;
+}
+
+if (chrome.permissions && chrome.permissions.onAdded) {
+  chrome.permissions.onAdded.addListener((p) => {
+    if (!p || !p.permissions || !p.permissions.includes("nativeMessaging")) return;
+    // Runs the state machine: reloads if the API is missing, otherwise the next
+    // status call simply connects.
+    statusCache = null;
+    ytdlpStatus(true).catch(() => {});
+  });
+  chrome.permissions.onRemoved.addListener((p) => {
+    if (!p || !p.permissions || !p.permissions.includes("nativeMessaging")) return;
+    dropPort("permission removed");
+  });
+}
 
 function ensurePort() {
   if (port) return port;
   portError = null;
-  if (!chrome.runtime.connectNative) {
+  if (typeof chrome.runtime.connectNative !== "function") {
     portError = NEEDS_PERMISSION;
     return null;
   }
@@ -216,6 +298,25 @@ function onHostMessage(msg) {
 
 export async function ytdlpStatus(force = false) {
   if (!force && statusCache && Date.now() - statusCache.at < 60_000) return statusCache.value;
+  const perm = await permissionState();
+  if (perm !== "ready") {
+    // Never cached: these change the moment the user clicks Allow or the
+    // extension reloads.
+    statusCache = null;
+    const value = { available: false, ytdlp: null, ffmpeg: null, permission: perm };
+    if (perm === "needs-permission") {
+      value.needsPermission = true;
+      value.error = NEEDS_PERMISSION;
+    } else if (perm === "needs-reload") {
+      value.needsReload = true;
+      value.error = NEEDS_RELOAD;
+      reloadForPermission();
+    } else {
+      value.needsBrowserRestart = true;
+      value.error = NEEDS_BROWSER_RESTART;
+    }
+    return value;
+  }
   const settings = await bridgeSettings();
   let value;
   try {
@@ -234,12 +335,7 @@ export async function ytdlpStatus(force = false) {
   } catch (e) {
     value = { available: false, error: String((e && e.message) || e), ytdlp: null, ffmpeg: null };
   }
-  value.needsPermission = !chrome.runtime.connectNative;
-  // Never cache "no permission": it changes the moment the user clicks Allow.
-  if (value.needsPermission) {
-    statusCache = null;
-    return value;
-  }
+  value.permission = "ready";
   statusCache = { at: Date.now(), value };
   return value;
 }

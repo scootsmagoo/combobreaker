@@ -176,6 +176,7 @@ node scripts/smoke_links.js     # link select with real mouse + keyboard: smart 
 node scripts/smoke_hls.js       # built-in HLS downloader: TS playlist, fMP4 byte ranges (server honours / ignores Range)
 node scripts/smoke_dark.js      # dark mode Auto: bright / dark / late CSS / late-rendering app / cached verdicts / overrides
 node scripts/smoke_privacy.js   # redirect chain, blocked counter, personal blocklist, third-party cookie strip, referrer override, auto-clear on close
+node scripts/smoke_helper_setup.js  # Helper setup page without the permission: Allow-only view, status shape, reload-and-reopen after a grant
 ```
 
 CI (`.github/workflows/ci.yml`) runs check, lint, test and pack on every push.

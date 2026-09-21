@@ -747,10 +747,19 @@ async function checkBridge(force) {
     update.hidden = false;
   } else {
     const notInstalled = res.needsPermission || /not installed/i.test(res.error || "");
-    dot.className = "bridge-dot err";
-    text.textContent = res.needsPermission ? "Not allowed yet: the setup page asks for it" : notInstalled ? "Not set up yet" : `Needs a repair: ${res.error || "unknown"}`;
+    const permissionStep = res.needsPermission || res.needsReload || res.needsBrowserRestart;
+    dot.className = `bridge-dot ${permissionStep ? "warn" : "err"}`;
+    text.textContent = res.needsPermission
+      ? "Not allowed yet: the setup page asks for it"
+      : res.needsReload
+        ? "Permission granted, ComboBreaker is restarting…"
+        : res.needsBrowserRestart
+          ? "Permission granted: quit and reopen the browser to finish"
+          : notInstalled
+            ? "Not set up yet"
+            : `Needs a repair: ${res.error || "unknown"}`;
     text.title = res.error || "";
-    setup.textContent = notInstalled ? "Set up the Helper" : "Repair the Helper";
+    setup.textContent = permissionStep ? "Finish setup" : notInstalled ? "Set up the Helper" : "Repair the Helper";
     setup.className = "primary-btn";
     update.hidden = true;
   }

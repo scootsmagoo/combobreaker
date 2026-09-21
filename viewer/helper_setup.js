@@ -51,7 +51,13 @@ async function check(force) {
   try {
     s = await send({ type: "ytdlp-status", force: !!force });
   } catch (e) {
-    s = { available: false, error: String(e.message || e) };
+    // "Extension context invalidated" = the worker is reloading and this page
+    // is about to be closed and reopened; say so instead of flashing an error.
+    if (/context invalidated|message port closed|receiving end/i.test(String(e.message || e))) {
+      s = { available: false, needsReload: true };
+    } else {
+      s = { available: false, error: String(e.message || e) };
+    }
   }
   if (s.available) {
     connected = true;
@@ -69,9 +75,25 @@ async function check(force) {
   }
   connected = false;
   $("allow").hidden = !s.needsPermission;
+  $("restart").hidden = !s.needsBrowserRestart;
   if (s.needsPermission) {
-    setStatus("waiting", "One permission first", "Click Allow below, then install the Helper if you have not already.");
-    showSteps();
+    // Only the Allow step: whether the Helper still needs installing is not
+    // knowable until the extension may talk to it, and showing the Terminal
+    // steps here sends people back to a command that cannot help.
+    setStatus("waiting", "One permission first", "Click Allow below. The install steps follow if they are still needed.");
+    hideSteps();
+    return;
+  }
+  if (s.needsReload) {
+    // The service worker reloads the extension in a moment; Chrome closes this
+    // page and the worker reopens it in the same place.
+    setStatus("waiting", "Permission granted, restarting ComboBreaker…", "This page closes and comes back by itself in a second.");
+    hideSteps();
+    return;
+  }
+  if (s.needsBrowserRestart) {
+    setStatus("err", "One more step: restart the browser", s.error || "");
+    hideSteps();
     return;
   }
   const err = s.error || "not installed";
@@ -86,6 +108,11 @@ function showSteps() {
   if (connected) return;
   $("steps-posix").hidden = os === "win";
   $("steps-win").hidden = os !== "win";
+  $("done").hidden = true;
+}
+function hideSteps() {
+  $("steps-posix").hidden = true;
+  $("steps-win").hidden = true;
   $("done").hidden = true;
 }
 
@@ -111,6 +138,10 @@ function bindAllow() {
       return;
     }
     if (!granted) return setStatus("waiting", "Not allowed", "Without it ComboBreaker cannot reach the Helper. Click Allow to try again.");
+    // The worker usually reloads the extension now (Chrome does not hand a
+    // running worker the new API). If this page is still here after that, the
+    // status call below reports the real state.
+    setStatus("waiting", "Permission granted, finishing…", "ComboBreaker may restart for a second; this page comes back by itself.");
     check(true);
   });
 }
@@ -154,6 +185,7 @@ async function init() {
     send({ type: "open-options", section: "downloads" }).catch(() => {});
   });
 
+  $("quit-keys").textContent = os === "mac" ? "⌘ Q" : "close every window";
   $("folder").textContent = helperFolderFor(os);
   $("uninstall").textContent = helperUninstallFor(os);
   $("ext-id").textContent = id;

@@ -139,10 +139,17 @@ async function checkBridge(force) {
     setup.hidden = true;
   } else {
     const notInstalled = b.needsPermission || /not installed/i.test(b.error || "");
-    dot.className = "bridge-dot err";
-    text.textContent = notInstalled ? "Helper not set up · needed for YouTube" : `Helper: ${b.error || "not installed"}`;
+    const permissionStep = b.needsPermission || b.needsReload || b.needsBrowserRestart;
+    dot.className = `bridge-dot ${permissionStep ? "warn" : "err"}`;
+    text.textContent = b.needsReload
+      ? "Helper: ComboBreaker is restarting to finish setup…"
+      : b.needsBrowserRestart
+        ? "Helper: quit and reopen the browser to finish setup"
+        : notInstalled
+          ? "Helper not set up · needed for YouTube"
+          : `Helper: ${b.error || "not installed"}`;
     text.title = b.error || "";
-    setup.textContent = notInstalled ? "Set up" : "Repair";
+    setup.textContent = permissionStep ? "Finish" : notInstalled ? "Set up" : "Repair";
     setup.hidden = false;
   }
   if (MEDIA.items.length) renderVideos();

@@ -114,6 +114,15 @@ Output filename template: `%(title).120B [%(id)s].%(ext)s` under
 
 ## Troubleshooting
 
+- **Setup page says "One permission first" although the Helper is installed**:
+  `nativeMessaging` is an optional permission and Chrome drops the grant when
+  the extension is removed and added again (a fresh unpacked load, a reinstall
+  from a package; a plain Reload keeps it). Click **Allow**; nothing needs
+  re-running in the terminal. Chrome does not hand the new API to a service
+  worker that is already running, so the extension reloads itself right after
+  the grant and reopens the setup page (`ytdlp_bridge.js`, `permissionState`).
+  If that reload did not help, the page asks for a full browser restart
+  instead of looping.
 - **"Helper not installed"**: the browser found no manifest. Run the setup
   again; on macOS make sure you pasted the whole line.
 - **"installed for a different copy of ComboBreaker"**: `allowed_origins`

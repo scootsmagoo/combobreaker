@@ -36,6 +36,7 @@ import {
   overlayDownload,
   overlayListAllFrames,
   pushMediaItem,
+  reopenHelperSetupIfPending,
 } from "./media.js";
 import { clearRedirectChain, getRedirectChain, getResponseHeaders } from "./net_capture.js";
 import { captureFullPage, launchTool, setEncoding } from "./page_tools.js";
@@ -69,6 +70,9 @@ async function boot() {
 chrome.runtime.onInstalled.addListener(boot);
 chrome.runtime.onStartup.addListener(boot);
 watchUserScripts();
+// After the bridge reloads the extension for the nativeMessaging grant, bring
+// the Helper setup page back (no-op unless a reload just happened).
+reopenHelperSetupIfPending();
 
 // ---------- Message router ----------
 

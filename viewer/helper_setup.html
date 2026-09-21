@@ -46,6 +46,29 @@
               the downloads you ask for.
             </p>
             <p><button type="button" id="allow-btn" class="primary">Allow</button></p>
+            <p class="muted">
+              Already installed the Helper before (for example after reinstalling ComboBreaker)? Then this
+              is the only step. ComboBreaker restarts itself right after you click Allow and this page comes
+              back on its own. No need to run the Terminal command again.
+            </p>
+          </li>
+        </ol>
+      </section>
+
+      <!-- Shown when a reload did not activate the permission -->
+      <section id="restart" class="steps" hidden>
+        <ol>
+          <li>
+            <h2>Quit and reopen your browser</h2>
+            <p>
+              Chrome recorded the permission but has not switched it on for ComboBreaker yet. This
+              happens occasionally after an extension is reinstalled. Quit the browser completely
+              (<kbd id="quit-keys">⌘ Q</kbd>, not just closing the window), open it again and come back here.
+            </p>
+            <p class="muted">
+              Still stuck? Open <code>chrome://extensions</code>, click <strong>Reload</strong> on the ComboBreaker
+              card, then <strong>Check again</strong> above.
+            </p>
           </li>
         </ol>
       </section>
