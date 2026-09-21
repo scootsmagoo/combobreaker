@@ -30,7 +30,7 @@ const icon = "data:image/png;base64," + fs.readFileSync(path.join(ROOT, "icons",
 
 const TILES = [
   {
-    file: "promo-small-440x280.png", w: 440, h: 280, icon: 112, name: 40, line: 17, gap: 28, features: false,
+    file: "promo-small-440x280.png", w: 440, h: 280, icon: 104, name: 38, line: 16, gap: 24, features: false,
     tagline: "One privacy-respecting toolbox.<br>No telemetry, no account, open source.",
   },
   {
