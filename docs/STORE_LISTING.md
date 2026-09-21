@@ -146,7 +146,15 @@ snippets are user-authored content run through `chrome.userScripts`, not code
 fetched by the extension. The Strong blocklist is data, regenerated at build
 time and shipped in the package; nothing is fetched at runtime.
 
-**Data usage** (tick nothing; then certify the three statements):
+**Data usage**: the store counts data handled locally as "collected"
+(program-policies/user-data-faq, Q3), so tick **Authentication information**
+(cookie editor, optional cookie hand-off to the Helper), **Web history**
+(current tab URL, per-tab redirect chain, auto-clear origins, saved tab
+sessions), **User activity** (network request monitoring for the blocked
+count, redirects, headers, media) and **Website content** (reader view, SEO
+viewer, link select, storage viewer, badges, tools). Leave the other five
+unticked. Then certify the three statements. The same four categories are
+spelled out in PRIVACY.md so the two agree.
 
 - The extension does not collect or transmit any user data. It makes no
   network requests of its own; the only outbound requests it causes are ones

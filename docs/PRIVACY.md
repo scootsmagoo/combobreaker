@@ -1,10 +1,35 @@
 # ComboBreaker privacy policy
 
-_Last updated: 2026-09-20_
+_Last updated: 2026-09-21_
 
-ComboBreaker does not collect, transmit, sell or share any data about you or
-your browsing. There is no ComboBreaker server, account, analytics or
-telemetry, and the extension loads no code from the network.
+ComboBreaker does not transmit, sell or share any data about you or your
+browsing. There is no ComboBreaker server, account, analytics or telemetry,
+and the extension loads no code from the network. Everything it reads, it
+reads on your device, for a feature you are using, and it stays there.
+
+**What the extension handles on your device**
+
+The Chrome Web Store asks developers to declare data an extension handles
+even when it never leaves the device. In the store's categories, ComboBreaker
+handles:
+
+- **Authentication information.** The cookie editor shows, edits and deletes
+  the cookies of the site you are on, which can include session tokens. If
+  you switch on "Use my browser's cookies" (off by default), the cookies of a
+  video site are passed to the local Helper for one download you started.
+- **Web history.** The address of the tab you have the popup open on; the
+  redirect chain of the page you are on (per tab, discarded when the tab
+  closes); the sites you opened in a tab, remembered only so "forget this
+  site when I close it" can clear them; and tab sessions you chose to save.
+- **User activity.** Network requests of the page you are on are observed
+  (never sent anywhere) to count blocked requests, show redirects and
+  response headers, and list downloadable media.
+- **Website content.** Page text and markup are read by the features that act
+  on them: reader view, the SEO and structured-data viewer, link select, the
+  storage viewer, the media badges and the on-page tools.
+
+None of this is transmitted to the developer or to any third party, sold, or
+used for anything but the feature you invoked.
 
 **What is stored, and where**
 
