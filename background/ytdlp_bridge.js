@@ -10,6 +10,7 @@
 
 import { getGlobal } from "../lib/storage.js";
 import { RELOAD_AT_KEY, REOPEN_KEY, helperPermissionState } from "../lib/helper.js";
+import { describeDownloadError, shortDownloadError } from "../lib/download_errors.js";
 
 export const HOST_NAME = "com.combobreaker.ytdlp";
 const JOBS_KEY = "ytdlp:jobs";
@@ -185,7 +186,7 @@ function ensurePort() {
     // Any job still running just lost its process.
     for (const job of jobs.values()) {
       if (isActive(job)) {
-        updateJob(job.id, { status: "error", error: `bridge disconnected (${portError})` });
+        failJob(job.id, `bridge disconnected (${portError})`);
       }
     }
   });
@@ -277,7 +278,7 @@ function onHostMessage(msg) {
       if (id) updateJob(id, { status: "cancelled", finishedAt: Date.now() });
       break;
     case "error":
-      if (id) updateJob(id, { status: "error", error: msg.message || "error", log: msg.log || undefined, finishedAt: Date.now() });
+      if (id) failJob(id, msg.message || "error", { log: msg.log || undefined });
       else console.warn("[ComboBreaker] yt-dlp host error:", msg.message);
       break;
     case "log":
@@ -425,6 +426,27 @@ function persistJobs() {
   }, 300);
 }
 
+// Every failure goes through here so the popup, the on-page badge and the
+// notification share one explanation (job.errorTitle / job.hint /
+// job.hintAction) and the raw yt-dlp text stays in job.error.
+function failJob(id, error, extra = {}) {
+  const job = jobs.get(id);
+  if (!job) return;
+  const raw = String(error || "error");
+  const d = describeDownloadError(raw, { cookiesSent: !!job.cookiesSent });
+  updateJob(id, {
+    status: "error",
+    error: raw,
+    errorShort: shortDownloadError(raw),
+    errorKind: d ? d.kind : null,
+    errorTitle: d ? d.title : null,
+    hint: d ? d.hint : null,
+    hintAction: d ? d.action : null,
+    finishedAt: Date.now(),
+    ...extra,
+  });
+}
+
 function updateJob(id, patch) {
   const job = jobs.get(id);
   if (!job) return;
@@ -452,7 +474,9 @@ function broadcast(job, wasActive, statusChanged) {
   }
   if (terminal && wasActive) {
     if (job.status === "done") notify(job, "Download finished", job.filepath || job.title || job.url);
-    else if (job.status === "error") notify(job, "Download failed", job.error || "");
+    else if (job.status === "error") {
+      notify(job, job.errorTitle || "Download failed", job.hint || job.errorShort || job.error || "", job.hintAction);
+    }
   }
 }
 
@@ -463,20 +487,51 @@ function publicJob(job) {
   return rest;
 }
 
-function notify(job, title, message) {
+// Notification ids carry the action so the click handler needs no state:
+// cb-ytdlp-<jobId>-<action>.
+const NOTIFICATION_ACTIONS = {
+  "options-downloads": "Open options",
+};
+
+function notify(job, title, message, action) {
   // Only when the notifications permission was granted at some point; it's
   // optional so we never nag. Failure is silent.
   try {
     if (!chrome.notifications) return;
-    const p = chrome.notifications.create(`cb-ytdlp-${job.id}`, {
+    const label = action && NOTIFICATION_ACTIONS[action];
+    const opts = {
       type: "basic",
       iconUrl: chrome.runtime.getURL("icons/icon128.png"),
       title: `ComboBreaker · ${title}`,
-      message: String(message || "").slice(0, 200),
+      message: String(message || "").slice(0, 300),
       silent: true,
-    });
+    };
+    if (label) {
+      opts.buttons = [{ title: label }];
+      opts.requireInteraction = true;
+    }
+    const p = chrome.notifications.create(`cb-ytdlp-${job.id}-${label ? action : "none"}`, opts);
     if (p && typeof p.catch === "function") p.catch(() => {});
   } catch {}
+}
+
+function onNotificationActivated(notificationId) {
+  const m = /^cb-ytdlp-[^-]+-(.+)$/.exec(String(notificationId || ""));
+  if (!m || m[1] === "none") return;
+  if (m[1] === "options-downloads") {
+    chrome.tabs.create({ url: chrome.runtime.getURL("options/options.html#downloads") }).catch(() => {});
+  }
+  try {
+    chrome.notifications.clear(notificationId);
+  } catch {}
+}
+
+// Listeners must be registered at worker start; if the permission arrives
+// later they exist after the next worker start, which the bridge's own
+// reload usually provides.
+if (chrome.notifications && chrome.notifications.onButtonClicked) {
+  chrome.notifications.onButtonClicked.addListener((id) => onNotificationActivated(id));
+  chrome.notifications.onClicked.addListener((id) => onNotificationActivated(id));
 }
 
 export async function ytdlpDownload({ url, quality, title, tabId, itemId, page, referer, thumb, site }) {
@@ -504,6 +559,7 @@ export async function ytdlpDownload({ url, quality, title, tabId, itemId, page, 
   broadcast(job, false, true);
   const { sendCookies, ...hostSettings } = settings;
   const cookies = sendCookies ? await cookieFileFor(page || url) : "";
+  job.cookiesSent = !!cookies;
   try {
     post({
       type: "download",
@@ -516,7 +572,7 @@ export async function ytdlpDownload({ url, quality, title, tabId, itemId, page, 
       ...hostSettings,
     });
   } catch (e) {
-    updateJob(id, { status: "error", error: String((e && e.message) || e), finishedAt: Date.now() });
+    failJob(id, String((e && e.message) || e));
     throw e;
   }
   return publicJob(job);

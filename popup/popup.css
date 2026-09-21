@@ -660,6 +660,7 @@ ul.browse-dup-list {
 .media-job .jt { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .media-job .js { color: var(--fg-dim); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .media-job .js.err { color: var(--danger); }
+.media-job .js.hint { white-space: normal; line-height: 1.35; }
 .media-job .js.ok { color: var(--ok); }
 .media-job .ja { display: flex; gap: 4px; align-items: center; grid-row: 1 / span 2; }
 .media-job .bar { grid-column: 1 / -1; height: 4px; background: var(--bg-3); border-radius: 2px; overflow: hidden; }

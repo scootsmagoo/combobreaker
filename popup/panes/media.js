@@ -487,6 +487,14 @@ function renderJobRow(j) {
     f.addEventListener("click", () => sendMessage({ type: "ytdlp-reveal", path: j.filepath }).catch(() => {}));
     a.appendChild(f);
   } else if (j.status === "error") {
+    if (j.hintAction === "options-downloads") {
+      const o = document.createElement("button");
+      o.className = "media-btn primary";
+      o.textContent = "Options";
+      o.title = "Open ComboBreaker options › Downloads";
+      o.addEventListener("click", () => sendMessage({ type: "open-options", section: "downloads" }).catch(() => {}));
+      a.appendChild(o);
+    }
     const r = document.createElement("button");
     r.className = "media-btn";
     r.textContent = "Retry";
@@ -517,11 +525,14 @@ function renderJobRow(j) {
     text = j.filepath || "Saved";
     s.classList.add("ok");
   } else if (j.status === "error") {
-    text = j.error || "Failed";
+    // Explained failures (YouTube's bot check, sign-in walls) show what to
+    // do; the raw yt-dlp line stays in the tooltip.
+    text = j.hint ? `${j.errorTitle ? j.errorTitle + ". " : ""}${j.hint}` : j.errorShort || j.error || "Failed";
     s.classList.add("err");
+    if (j.hint) s.classList.add("hint");
   } else if (j.status === "cancelled") text = "Cancelled";
   s.textContent = text;
-  s.title = text;
+  s.title = j.status === "error" && j.error ? j.error : text;
   row.appendChild(s);
 
   const bar = document.createElement("div");

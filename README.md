@@ -177,6 +177,7 @@ node scripts/smoke_hls.js       # built-in HLS downloader: TS playlist, fMP4 byt
 node scripts/smoke_dark.js      # dark mode Auto: bright / dark / late CSS / late-rendering app / cached verdicts / overrides
 node scripts/smoke_privacy.js   # redirect chain, blocked counter, personal blocklist, third-party cookie strip, referrer override, auto-clear on close
 node scripts/smoke_helper_setup.js  # Helper setup page without the permission: Allow-only view, status shape, reload-and-reopen after a grant
+node scripts/smoke_download_hint.js # a failed Helper job in the popup: explanation + Options button; same job pushed to a page as a toast
 ```
 
 CI (`.github/workflows/ci.yml`) runs check, lint, test and pack on every push.

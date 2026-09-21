@@ -1359,13 +1359,19 @@
               sendToSw({ type: "ytdlp-reveal", path: j.filepath }).catch(() => {});
             });
           } else if (j.status === "error") {
+            // The service worker explains known failures (lib/download_errors.js);
+            // the regex is a fallback for a worker that predates that.
             const err = j.error || "";
-            if (/sign in to confirm|not a bot/i.test(err)) {
-              toastWithAction("err", "YouTube wants a sign-in check",
-                "Turn on “Use my browser’s cookies” in ComboBreaker options › Downloads, then try again.",
-                "Open options", () => sendToSw({ type: "open-options", section: "downloads" }).catch(() => {}));
+            const hint = j.hint || (/sign in to confirm|not a bot/i.test(err)
+              ? "Turn on “Use my browser’s cookies” in ComboBreaker options › Downloads, then try again."
+              : "");
+            const action = j.hint ? j.hintAction : hint ? "options-downloads" : null;
+            const title = j.errorTitle || (hint ? "YouTube wants a sign-in check" : "Download failed");
+            if (action === "options-downloads") {
+              toastWithAction("err", title, hint, "Open options", () =>
+                sendToSw({ type: "open-options", section: "downloads" }).catch(() => {}));
             } else {
-              toast("err", "Download failed", err.replace(/^yt-dlp exited with code \d+\.\s*/, ""));
+              toast("err", title, hint || j.errorShort || err.replace(/^yt-dlp exited with code \d+\.\s*/, ""));
             }
           }
         }
