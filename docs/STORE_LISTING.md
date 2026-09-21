@@ -14,9 +14,11 @@ the same commit.
 2. Register at https://chrome.google.com/webstore/devconsole (one-time US$5),
    **New item**, upload the zip.
 3. **Store listing** tab: paste the summary and description below, category,
-   language, upload the five PNGs from `docs/store/` and the 128px icon
-   (`icons/icon128.png`). A 440×280 small promo tile is optional; there is
-   none yet.
+   language, upload the five screenshots from `docs/store/` and the 128px
+   icon (`icons/icon128.png`). Also upload the two promo tiles from
+   `docs/store/` (`promo-small-440x280.png`, `promo-marquee-1400x560.png`);
+   they are optional, but the store only features items that have them.
+   Regenerate with `node scripts/store_promo.js`.
 4. **Privacy practices** tab: single purpose, the permission justifications,
    "no remote code", the data-usage answers, and the privacy policy URL
    `https://github.com/scootsmagoo/combobreaker/blob/main/docs/PRIVACY.md`.
