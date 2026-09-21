@@ -156,8 +156,8 @@ viewer, link select, storage viewer, badges, tools). Leave the other five
 unticked. Then certify the three statements. The same four categories are
 spelled out in PRIVACY.md so the two agree.
 
-- The extension does not collect or transmit any user data. It makes no
-  network requests of its own; the only outbound requests it causes are ones
+- Everything above is handled on the device and never transmitted. The
+  extension makes no network requests of its own; the only outbound requests it causes are ones
   the user asks for (downloading a media file, Dark Reader fetching a page's
   own stylesheets so it can recolour them, the user clicking through to a
   validator).
